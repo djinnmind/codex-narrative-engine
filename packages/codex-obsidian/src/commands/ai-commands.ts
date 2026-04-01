@@ -3,6 +3,7 @@ import { buildSystemPrompt } from '@codex-ide/core';
 import type { EntityType } from '@codex-ide/core';
 import type CodexPlugin from '../main';
 import { applySuggestedEdit } from '../ui/suggestion-decorations';
+import { extractMarkdown, extractNameFromContent, ENTITY_FOLDER_MAP } from '../util/ai-helpers';
 
 // ---------------------------------------------------------------------------
 // Default entity templates — written to _codex/templates/ on first run and
@@ -634,12 +635,7 @@ Return ONLY the complete markdown file content with frontmatter — no explanati
       const name = extractNameFromContent(content) ?? `New ${this.type}`;
       const safeName = name.replace(/[\\/:*?"<>|]/g, '');
 
-      const folderMap: Partial<Record<string, string>> = {
-        npc: 'npcs', creature: 'creatures', location: 'locations',
-        faction: 'factions', item: 'items', quest: 'quests',
-        adventure: 'adventures', session: 'sessions', event: 'events',
-      };
-      const folder = folderMap[this.type] ?? '';
+      const folder = ENTITY_FOLDER_MAP[this.type] ?? '';
 
       let filePath = folder ? `${folder}/${safeName}.md` : `${safeName}.md`;
 
@@ -878,15 +874,8 @@ class ExtractedEntitiesModal extends Modal {
 
     let created = 0;
     const createdNames: string[] = [];
-    const folderMap: Record<string, string> = {
-      npc: 'npcs', creature: 'creatures', location: 'locations',
-      faction: 'factions', item: 'items', quest: 'quests',
-      adventure: 'adventures', session: 'sessions', event: 'events',
-      world: 'world',
-    };
-
     for (const entity of toCreate) {
-      const folder = folderMap[entity.type] ?? '';
+      const folder = ENTITY_FOLDER_MAP[entity.type] ?? '';
       const safeName = entity.name.replace(/[\\/:*?"<>|]/g, '');
 
       if (folder && !this.plugin.app.vault.getAbstractFileByPath(folder)) {
@@ -1002,52 +991,6 @@ function showSpinner(message: string): () => void {
   return () => overlay.remove();
 }
 
-function extractMarkdown(response: string): string {
-  const trimmed = response.trim();
-
-  let content: string;
-  const outerFenceStart = trimmed.match(/^```\w*\s*\n/);
-  if (outerFenceStart) {
-    const lastFence = trimmed.lastIndexOf('```');
-    if (lastFence > outerFenceStart[0].length) {
-      content = trimmed.slice(outerFenceStart[0].length, lastFence).trim() + '\n';
-    } else {
-      content = trimmed + '\n';
-    }
-  } else {
-    content = trimmed + '\n';
-  }
-
-  return sanitizeStatblocks(content);
-}
-
-/**
- * Fix common YAML issues inside ```statblock code blocks:
- * 1. Strip HTML comments (YAML doesn't support them)
- * 2. Quote unquoted `desc:` values that contain colons (YAML interprets them as nested mappings)
- */
-function sanitizeStatblocks(content: string): string {
-  return content.replace(
-    /^```statblock\s*\n([\s\S]*?)^```/gm,
-    (_match, yaml: string) => {
-      let cleaned = yaml;
-      cleaned = cleaned.replace(/<!--[\s\S]*?-->/g, '');
-      cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
-      cleaned = cleaned.replace(
-        /^(\s*desc:\s+)(?!")(.+)$/gm,
-        (_m, prefix: string, value: string) => {
-          if (value.includes(':')) {
-            const escaped = value.replace(/"/g, '\\"');
-            return `${prefix}"${escaped}"`;
-          }
-          return `${prefix}${value}`;
-        },
-      );
-      return '```statblock\n' + cleaned + '```';
-    },
-  );
-}
-
 function parseEntityJSON(raw: string): ExtractedEntity[] {
   try {
     return JSON.parse(raw);
@@ -1094,12 +1037,3 @@ function splitFrontmatterAndBody(content: string): { existingFrontmatter: string
   return { existingFrontmatter, body };
 }
 
-function extractNameFromContent(content: string): string | null {
-  const nameMatch = content.match(/^name:\s*"?([^"\n]+)"?\s*$/m);
-  if (nameMatch) return nameMatch[1].trim();
-
-  const headingMatch = content.match(/^#\s+(.+)$/m);
-  if (headingMatch) return headingMatch[1].trim();
-
-  return null;
-}

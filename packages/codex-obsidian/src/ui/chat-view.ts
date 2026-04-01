@@ -1,7 +1,9 @@
-import { ItemView, WorkspaceLeaf, Notice, MarkdownRenderer } from 'obsidian';
+import { ItemView, WorkspaceLeaf, Notice, MarkdownRenderer, TFile } from 'obsidian';
 import type CodexPlugin from '../main';
 import type { ChatMessage } from '@codex-ide/core';
 import { buildSystemPrompt } from '@codex-ide/core';
+import { extractMarkdown, extractNameFromContent, extractTypeFromContent, hasFrontmatter, ENTITY_FOLDER_MAP } from '../util/ai-helpers';
+import { proposeEdit } from './diff-review-modal';
 
 export const CHAT_VIEW_TYPE = 'codex-lore-chat';
 
@@ -216,9 +218,84 @@ export class LoreChatView extends ItemView {
           '',
           this,
         );
+        this.addActionBar(msgEl, msg.content);
       } else {
         contentEl.setText(msg.content);
       }
+    }
+  }
+
+  private addActionBar(msgEl: HTMLElement, rawContent: string): void {
+    const md = extractMarkdown(rawContent);
+    const hasNote = hasFrontmatter(md);
+    const activeFile = this.app.workspace.getActiveFile();
+
+    const bar = msgEl.createDiv({ cls: 'codex-chat-actions' });
+
+    if (hasNote) {
+      const name = extractNameFromContent(md);
+      const saveBtn = bar.createEl('button', {
+        cls: 'codex-chat-action-btn',
+        text: name ? `Save "${name}"` : 'Save as Note',
+        attr: { 'aria-label': 'Create a new note from this response' },
+      });
+      saveBtn.addEventListener('click', () => this.handleSaveAsNote(md));
+    }
+
+    if (hasNote && activeFile) {
+      const applyBtn = bar.createEl('button', {
+        cls: 'codex-chat-action-btn',
+        text: `Apply to ${activeFile.basename}`,
+        attr: { 'aria-label': 'Apply changes to the currently open note' },
+      });
+      applyBtn.addEventListener('click', () => this.handleApplyToNote(md, activeFile));
+    }
+
+    const copyBtn = bar.createEl('button', {
+      cls: 'codex-chat-action-btn codex-chat-action-copy',
+      text: 'Copy',
+      attr: { 'aria-label': 'Copy response to clipboard' },
+    });
+    copyBtn.addEventListener('click', async () => {
+      await navigator.clipboard.writeText(rawContent);
+      copyBtn.setText('Copied!');
+      setTimeout(() => copyBtn.setText('Copy'), 1500);
+    });
+  }
+
+  private async handleSaveAsNote(content: string): Promise<void> {
+    const name = extractNameFromContent(content) ?? `New Note`;
+    const safeName = name.replace(/[\\/:*?"<>|]/g, '');
+    const type = extractTypeFromContent(content);
+    const folder = (type && ENTITY_FOLDER_MAP[type]) || '';
+
+    if (folder && !this.app.vault.getAbstractFileByPath(folder)) {
+      await this.app.vault.createFolder(folder);
+    }
+
+    let filePath = folder ? `${folder}/${safeName}.md` : `${safeName}.md`;
+    if (this.app.vault.getAbstractFileByPath(filePath)) {
+      filePath = folder
+        ? `${folder}/${safeName} ${Date.now()}.md`
+        : `${safeName} ${Date.now()}.md`;
+    }
+
+    const newFile = await this.app.vault.create(filePath, content);
+    const leaf = this.app.workspace.getLeaf(false);
+    await leaf.openFile(newFile);
+    new Notice(`Codex: Created ${safeName}`);
+
+    this.plugin.registry.clear();
+    await this.plugin.vaultAdapter.fullIndex();
+    this.plugin.refreshWarningsView();
+  }
+
+  private async handleApplyToNote(content: string, file: TFile): Promise<void> {
+    const accepted = await proposeEdit(this.plugin, file, content, 'Lore Chat');
+    if (accepted) {
+      this.plugin.registry.clear();
+      await this.plugin.vaultAdapter.fullIndex();
+      this.plugin.refreshWarningsView();
     }
   }
 

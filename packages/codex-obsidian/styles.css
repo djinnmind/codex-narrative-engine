@@ -481,6 +481,35 @@
   border-color: var(--interactive-accent);
 }
 
+/* ===== Chat Action Buttons ===== */
+
+.codex-chat-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.codex-chat-action-btn {
+  font-size: var(--font-smallest);
+  padding: 3px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.codex-chat-action-btn:hover {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border-color: var(--interactive-accent);
+}
+
 /* ===== AI Spinner Overlay ===== */
 
 .codex-spinner-overlay {
