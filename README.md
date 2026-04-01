@@ -1,8 +1,10 @@
 # Codex Narrative Engine
 
-An [Obsidian](https://obsidian.md) plugin that adds narrative intelligence to your TTRPG campaign vault. Codex indexes your world-building notes, surfaces broken links, and detects logical contradictions in your story — so you can focus on running the game instead of auditing your lore.
+An [Obsidian](https://obsidian.md) plugin that adds narrative intelligence to your TTRPG campaign vault. Codex indexes your world-building notes, surfaces broken links, detects logical contradictions in your story, and brings AI assistance directly into your creative workflow — so you can focus on running the game instead of auditing your lore.
 
 ## Features
+
+### World Management
 
 **Entity indexing** — Codex reads frontmatter (`type: npc`, `type: location`, etc.) to build a live index of every entity in your vault.
 
@@ -20,6 +22,28 @@ An [Obsidian](https://obsidian.md) plugin that adds narrative intelligence to yo
 **Narrative Warnings panel** — A sidebar panel listing every detected issue. Click a warning to jump straight to the source.
 
 **Create & rename entities** — Create new entity files from templates, or rename an entity and have all references updated automatically.
+
+### AI-Powered Tools (Bring Your Own Key)
+
+All AI features work with your own API key — no subscription required. Supports **Google Gemini**, **OpenAI**, **Anthropic (Claude)**, **Ollama**, **LM Studio**, and any **OpenAI-compatible** endpoint.
+
+**Lore Chat** — A sidebar conversation panel grounded in your campaign. Ask questions about your world, generate new content, or brainstorm plot ideas. Codex automatically assembles relevant entities, sessions, and world rules as context so the AI stays consistent with your established lore.
+
+**Save All as Notes** — When Lore Chat generates multiple entities in a single response, one click creates each as an individual note with proper frontmatter, filed into the correct folder.
+
+**Edit & Regenerate** — Edit any previous prompt and re-send, or regenerate the last response with one click.
+
+**AI: Enhance Note** — Expands a stub entity into a fully fleshed-out note, filling in missing sections while preserving your existing content and wiki-links.
+
+**AI: Generate Entity** — Creates a new NPC, location, item, faction, creature, quest, or other entity from a short description, including frontmatter and (optionally) a Fantasy Statblocks-compatible stat block.
+
+**AI: Describe Scene (Read-Aloud)** — Generates atmospheric read-aloud text for a location or session scene.
+
+**AI: Extract Entities from Note** — Scans a session log or narrative note, identifies unnamed NPCs, locations, and items mentioned in the text, and creates individual entity files for each.
+
+**AI: Revise Selection** — Select any text and give a natural-language instruction ("make it more dramatic", "add sensory details", "rewrite as bullet points"). The AI rewrites just that selection and presents a diff for review before applying.
+
+**Diff review** — All AI edits go through a side-by-side diff review modal. Accept or reject changes before they touch your notes.
 
 ## Installation
 
