@@ -1,0 +1,712 @@
+/* Codex Narrative Engine — Plugin Styles */
+
+/* Dead-link warning underline */
+.codex-dead-link {
+  text-decoration: underline wavy var(--text-warning);
+  text-underline-offset: 3px;
+}
+
+/* State conflict warning underline */
+.codex-state-conflict {
+  text-decoration: underline wavy var(--text-error);
+  text-underline-offset: 3px;
+}
+
+/* Hint underline */
+.codex-hint {
+  text-decoration: underline dotted var(--text-muted);
+  text-underline-offset: 3px;
+}
+
+/* Gutter warning icon */
+.codex-gutter-warning {
+  color: var(--text-warning);
+  cursor: pointer;
+}
+
+.codex-gutter-error {
+  color: var(--text-error);
+  cursor: pointer;
+}
+
+.codex-gutter-hint {
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.codex-gutter-clickable {
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.codex-gutter-clickable:hover {
+  transform: scale(1.3);
+}
+
+/* Editor (Live Preview) — override dimmed styling for Codex-resolved links */
+.is-unresolved.codex-editor-resolved {
+  color: var(--link-color) !important;
+  opacity: 1 !important;
+  text-decoration-color: var(--link-color) !important;
+}
+
+.is-unresolved.codex-editor-resolved:hover {
+  color: var(--link-color-hover) !important;
+}
+
+/* Reading mode — Codex-resolved link (alias/plural that Obsidian doesn't recognize) */
+.codex-resolved-link {
+  color: var(--link-color) !important;
+  opacity: 1 !important;
+  text-decoration-line: underline;
+  cursor: pointer;
+}
+
+.codex-resolved-link:hover {
+  color: var(--link-color-hover) !important;
+}
+
+/* Reading mode dead-link badge */
+.codex-reading-dead-link {
+  text-decoration: underline wavy var(--text-warning);
+  text-underline-offset: 3px;
+  cursor: pointer;
+  position: relative;
+}
+
+.codex-reading-dead-link::after {
+  content: '⚠';
+  font-size: 0.75em;
+  color: var(--text-warning);
+  margin-left: 2px;
+  vertical-align: super;
+}
+
+/* Global hover tooltip (DOM-based, works in all modes) */
+.codex-global-hover-tooltip {
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+}
+
+/* Hover tooltip */
+.codex-hover-tooltip {
+  padding: 8px 12px;
+  max-width: 400px;
+  font-size: var(--font-ui-small);
+}
+
+.codex-hover-tooltip .codex-entity-type-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: var(--font-smallest);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-right: 6px;
+}
+
+.codex-hover-tooltip .codex-entity-type-badge[data-type="npc"] {
+  background: var(--color-blue);
+  color: var(--text-on-accent);
+}
+
+.codex-hover-tooltip .codex-entity-type-badge[data-type="location"] {
+  background: var(--color-green);
+  color: var(--text-on-accent);
+}
+
+.codex-hover-tooltip .codex-entity-type-badge[data-type="faction"] {
+  background: var(--color-purple);
+  color: var(--text-on-accent);
+}
+
+.codex-hover-tooltip .codex-entity-type-badge[data-type="item"] {
+  background: var(--color-orange);
+  color: var(--text-on-accent);
+}
+
+.codex-hover-tooltip .codex-entity-type-badge[data-type="session"] {
+  background: var(--color-yellow);
+  color: var(--text-normal);
+}
+
+.codex-hover-tooltip .codex-entity-type-badge[data-type="quest"] {
+  background: var(--color-red);
+  color: var(--text-on-accent);
+}
+
+.codex-hover-tooltip .codex-entity-title {
+  font-weight: 400;
+  font-size: var(--font-ui-medium);
+  color: var(--text-muted);
+}
+
+.codex-hover-tooltip .codex-entity-name {
+  font-weight: 600;
+  font-size: var(--font-ui-medium);
+}
+
+.codex-hover-tooltip .codex-entity-meta {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  margin-top: 4px;
+}
+
+.codex-hover-tooltip .codex-entity-preview {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--background-modifier-border);
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  line-height: 1.4;
+}
+
+/* Warnings sidebar panel */
+.codex-warnings-panel {
+  padding: 8px;
+}
+
+.codex-warnings-panel .codex-warnings-header {
+  font-size: var(--font-ui-small);
+  color: var(--text-muted);
+  padding: 4px 0 8px 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+  margin-bottom: 8px;
+}
+
+.codex-warnings-panel .codex-warning-group {
+  margin-bottom: 12px;
+}
+
+.codex-warnings-panel .codex-warning-group-title {
+  font-size: var(--font-ui-smaller);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.codex-warnings-panel .codex-warning-item {
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: var(--font-ui-smaller);
+  line-height: 1.4;
+}
+
+.codex-warnings-panel .codex-warning-item:hover {
+  background: var(--background-modifier-hover);
+}
+
+.codex-warnings-panel .codex-warning-item .codex-warning-message {
+  color: var(--text-normal);
+}
+
+.codex-warnings-panel .codex-warning-item .codex-warning-file {
+  color: var(--text-faint);
+  font-size: var(--font-smallest);
+}
+
+.codex-warnings-panel .codex-empty-state {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 24px 16px;
+  font-size: var(--font-ui-small);
+}
+
+/* Autocomplete entity type icons */
+.codex-suggest-item .codex-suggest-type {
+  display: inline-block;
+  width: 18px;
+  text-align: center;
+  margin-right: 4px;
+  opacity: 0.7;
+}
+
+.codex-suggest-item .codex-suggest-title {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+
+.codex-suggest-item .codex-suggest-alias {
+  color: var(--text-faint);
+  font-size: var(--font-smallest);
+  margin-left: 6px;
+  font-style: italic;
+}
+
+.codex-suggest-item .codex-suggest-status {
+  color: var(--text-faint);
+  font-size: var(--font-smallest);
+  margin-left: 8px;
+}
+
+/* ===== Lore Chat Sidebar ===== */
+
+.codex-chat-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 0;
+}
+
+.codex-chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  flex-shrink: 0;
+}
+
+.codex-chat-title {
+  font-weight: 600;
+  font-size: var(--font-ui-medium);
+}
+
+.codex-chat-header-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.codex-chat-clear-btn {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.codex-chat-clear-btn:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.codex-chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.codex-chat-message {
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: var(--font-ui-small);
+  line-height: 1.5;
+}
+
+.codex-chat-user {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  align-self: flex-end;
+  max-width: 85%;
+  border-bottom-right-radius: 2px;
+}
+
+.codex-chat-assistant {
+  background: var(--background-secondary);
+  align-self: flex-start;
+  max-width: 95%;
+  border-bottom-left-radius: 2px;
+}
+
+.codex-chat-role {
+  font-size: var(--font-smallest);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+  opacity: 0.7;
+}
+
+.codex-chat-content {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.codex-chat-content p {
+  margin: 0 0 8px 0;
+}
+
+.codex-chat-content p:last-child {
+  margin-bottom: 0;
+}
+
+.codex-chat-content ul,
+.codex-chat-content ol {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+
+.codex-chat-content code {
+  font-size: 0.9em;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: var(--background-modifier-code);
+}
+
+.codex-chat-content pre {
+  margin: 8px 0;
+  padding: 8px;
+  border-radius: 6px;
+  background: var(--background-modifier-code);
+  overflow-x: auto;
+}
+
+.codex-chat-thinking {
+  color: var(--text-muted);
+  font-style: italic;
+  animation: codex-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes codex-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* Input area */
+.codex-chat-input-area {
+  flex-shrink: 0;
+  padding: 8px 12px 12px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.codex-chat-input {
+  width: 100%;
+  resize: none;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: var(--font-ui-small);
+  font-family: inherit;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  line-height: 1.4;
+  box-sizing: border-box;
+}
+
+.codex-chat-input:focus {
+  border-color: var(--interactive-accent);
+  outline: none;
+  box-shadow: 0 0 0 2px var(--interactive-accent-hover);
+}
+
+.codex-chat-input::placeholder {
+  color: var(--text-faint);
+}
+
+.codex-chat-input-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+}
+
+.codex-chat-context-hint {
+  font-size: var(--font-smallest);
+  color: var(--text-faint);
+}
+
+.codex-chat-send-btn {
+  padding: 4px 16px;
+  border-radius: 6px;
+  border: none;
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  font-size: var(--font-ui-small);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.codex-chat-send-btn:hover {
+  background: var(--interactive-accent-hover);
+}
+
+.codex-chat-send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Empty state */
+.codex-chat-empty {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 32px 16px;
+  margin: auto;
+}
+
+.codex-chat-empty-icon {
+  font-size: 2em;
+  margin-bottom: 8px;
+}
+
+.codex-chat-empty p {
+  margin: 4px 0;
+}
+
+.codex-chat-empty-hint {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+}
+
+.codex-chat-examples {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.codex-chat-example {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--background-modifier-border);
+  font-size: var(--font-ui-smaller);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+}
+
+.codex-chat-example:hover {
+  background: var(--background-modifier-hover);
+  border-color: var(--interactive-accent);
+}
+
+/* ===== AI Spinner Overlay ===== */
+
+.codex-spinner-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.25);
+  animation: codex-fade-in 0.15s ease-out;
+}
+
+.codex-spinner-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 40px 52px;
+  border-radius: 16px;
+  background: var(--background-primary);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.28);
+}
+
+.codex-spinner {
+  width: 56px;
+  height: 56px;
+  border: 4px solid var(--background-modifier-border);
+  border-top-color: var(--interactive-accent);
+  border-radius: 50%;
+  animation: codex-spin 0.8s linear infinite;
+}
+
+.codex-spinner-text {
+  color: var(--text-muted);
+  font-size: var(--font-ui-medium);
+  font-weight: 500;
+}
+
+@keyframes codex-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes codex-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ===== Inline Suggestion Highlights ===== */
+
+.codex-suggestion-add {
+  background: hsla(var(--color-green-hsl, 120, 60%, 40%), 0.18);
+  border-radius: 2px;
+}
+
+.codex-suggestion-removed {
+  padding: 0 0 0 var(--size-4-4);
+  border-left: 3px solid hsla(0, 70%, 50%, 0.4);
+  opacity: 0.65;
+}
+
+.codex-suggestion-removed-line {
+  text-decoration: line-through;
+  color: var(--text-faint);
+  font-family: var(--font-monospace);
+  font-size: var(--font-smallest);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+/* ===== Diff Review Modal ===== */
+
+.codex-diff-modal {
+  max-width: 800px;
+  width: 90vw;
+}
+
+.codex-diff-summary {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  margin-bottom: 12px;
+}
+
+.codex-diff-body {
+  max-height: 500px;
+  overflow-y: auto;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background: var(--background-primary);
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+
+.codex-diff-line {
+  padding: 1px 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.codex-diff-line-add {
+  background: hsla(var(--color-green-hsl), 0.15);
+  color: var(--text-normal);
+}
+
+.codex-diff-line-remove {
+  background: hsla(var(--color-red-hsl), 0.15);
+  color: var(--text-normal);
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+.codex-diff-line-context {
+  color: var(--text-muted);
+}
+
+.codex-diff-collapsed {
+  padding: 4px 12px;
+  text-align: center;
+  color: var(--text-faint);
+  font-size: var(--font-smallest);
+  font-style: italic;
+  background: var(--background-secondary);
+  border-top: 1px solid var(--background-modifier-border);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.codex-diff-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* ===== Revise Selection Modal ===== */
+
+.codex-revise-preview {
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--background-secondary);
+  border-left: 3px solid var(--interactive-accent);
+  font-size: var(--font-ui-small);
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  max-height: 100px;
+  overflow-y: auto;
+}
+
+/* ===== Extract Entities Modal ===== */
+
+.codex-extract-modal {
+  max-width: 600px;
+}
+
+.codex-extract-summary {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  margin-bottom: 12px;
+}
+
+.codex-extract-list {
+  max-height: 400px;
+  overflow-y: auto;
+  margin-bottom: 16px;
+}
+
+.codex-extract-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 6px;
+}
+
+.codex-extract-row:hover {
+  background: var(--background-modifier-hover);
+}
+
+.codex-extract-row input[type="checkbox"] {
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+.codex-extract-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.codex-extract-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.codex-extract-entity-name {
+  font-weight: 600;
+  font-size: var(--font-ui-small);
+}
+
+.codex-extract-type-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: var(--font-smallest);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+.codex-extract-exists {
+  font-size: var(--font-smallest);
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+.codex-extract-desc {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  margin-top: 2px;
+}
+
+.codex-extract-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

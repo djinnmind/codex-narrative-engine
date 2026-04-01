@@ -1,0 +1,15 @@
+{
+  "name": "codex-ide",
+  "private": true,
+  "workspaces": [
+    "packages/codex-core",
+    "packages/codex-obsidian"
+  ],
+  "scripts": {
+    "build": "npm run build:core && npm run build:obsidian",
+    "build:core": "cd packages/codex-core && npm run build",
+    "build:obsidian": "cd packages/codex-obsidian && npm run build",
+    "test": "cd packages/codex-core && npm run test",
+    "dev": "cd packages/codex-obsidian && npm run dev"
+  }
+}

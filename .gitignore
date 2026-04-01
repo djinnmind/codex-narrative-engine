@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+out/
+*.js.map
+
+# TypeScript
+*.tsbuildinfo
+
+# Obsidian plugin build artifacts
+packages/codex-obsidian/main.js
+data.json
+
+# Environment & secrets
+.env
+.env.*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor config
+.vscode/
+!.vscode/settings.json
+!.vscode/launch.json
+
+# Test & coverage
+coverage/
+.nyc_output/
+
+# Package manager
+*.tgz
+.pnpm-store/
+
+# Debug logs
+npm-debug.log*
+packages/codex-core/test/fixtures/sample-vault/.obsidian/plugins/

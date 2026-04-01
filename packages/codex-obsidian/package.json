@@ -1,0 +1,20 @@
+{
+  "name": "@codex-ide/obsidian",
+  "version": "0.2.0",
+  "description": "Obsidian plugin for narrative linting and entity intelligence",
+  "main": "main.js",
+  "scripts": {
+    "build": "node esbuild.config.mjs production",
+    "dev": "node esbuild.config.mjs"
+  },
+  "dependencies": {
+    "@codex-ide/core": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "builtin-modules": "^4.0.0",
+    "esbuild": "^0.21.0",
+    "obsidian": "latest",
+    "typescript": "^5.4.0"
+  }
+}
