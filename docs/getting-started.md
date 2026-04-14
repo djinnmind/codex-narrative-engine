@@ -4,6 +4,15 @@ This guide walks you through installing Codex Narrative Engine, setting up your 
 
 ## Installation
 
+### Via BRAT (recommended)
+
+[BRAT](https://github.com/TfTHacker/obsidian42-brat) installs plugins directly from GitHub and keeps them updated automatically.
+
+1. Install **BRAT** from Settings > Community Plugins (search "BRAT").
+2. Open **Settings > BRAT > Add Beta Plugin**.
+3. Enter `jdicorpo/codex-narrative-engine` and click **Add Plugin**.
+4. Enable **Codex Narrative Engine** in Settings > Community Plugins.
+
 ### From Obsidian Community Plugins (coming soon)
 
 1. Open **Settings > Community Plugins** and make sure restricted mode is off.

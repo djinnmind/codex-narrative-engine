@@ -4,7 +4,7 @@ An [Obsidian](https://obsidian.md) plugin that adds narrative intelligence to yo
 
 ## Quick Start
 
-1. **Install** the plugin ([manually](docs/getting-started.md#manual--sideload) for now; community listing coming soon).
+1. **Install** the plugin ([via BRAT](#via-brat-recommended) or [manually](docs/getting-started.md#manual--sideload); community listing coming soon).
 2. **Add frontmatter** to your notes — at minimum `type: npc`, `type: location`, etc. — so Codex can index them.
 3. **Open the warnings panel** (ribbon icon or `Codex: Open narrative warnings`) to see dead links and state conflicts.
 4. **Set up an AI provider** in Settings > Codex Narrative Engine > AI provider to unlock Lore Chat and AI-powered generation.
@@ -42,6 +42,15 @@ All AI features use your own API key — no subscription required. Supports **Go
 | [Commands Reference](docs/commands.md) | Every command, hotkey, context menu entry, and ribbon icon |
 
 ## Installation
+
+### Via BRAT (recommended)
+
+[BRAT](https://github.com/TfTHacker/obsidian42-brat) installs plugins directly from GitHub and keeps them updated automatically.
+
+1. Install **BRAT** from Settings > Community Plugins (search "BRAT")
+2. Open **Settings > BRAT > Add Beta Plugin**
+3. Enter `jdicorpo/codex-narrative-engine` and click **Add Plugin**
+4. Enable **Codex Narrative Engine** in Settings > Community Plugins
 
 ### From Obsidian Community Plugins (coming soon)
 
