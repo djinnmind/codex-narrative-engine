@@ -132,6 +132,7 @@ export class LoreChatView extends ItemView {
       const systemPrompt = buildSystemPrompt(context, {
         ruleSystem: this.plugin.settings.aiRuleSystem,
         campaignTone: this.plugin.settings.aiCampaignTone,
+        language: this.plugin.settings.aiLanguage,
       });
       console.debug(`Codex Chat: system prompt is ${systemPrompt.length} chars`);
 

@@ -200,6 +200,7 @@ export async function enhanceNote(plugin: CodexPlugin, file: TFile): Promise<voi
   const systemPrompt = buildSystemPrompt(context, {
     ruleSystem: plugin.settings.aiRuleSystem,
     campaignTone: plugin.settings.aiCampaignTone,
+    language: plugin.settings.aiLanguage,
   });
 
   const useFantasyStatblocks = plugin.settings.aiStatblockFormat === 'fantasy-statblocks';
@@ -350,6 +351,7 @@ class ReviseSelectionModal extends Modal {
     const systemPrompt = buildSystemPrompt(context, {
       ruleSystem: this.plugin.settings.aiRuleSystem,
       campaignTone: this.plugin.settings.aiCampaignTone,
+      language: this.plugin.settings.aiLanguage,
     });
 
     try {
@@ -554,6 +556,7 @@ class GenerateEntityModal extends Modal {
     const systemPrompt = buildSystemPrompt(context, {
       ruleSystem: this.plugin.settings.aiRuleSystem,
       campaignTone: this.plugin.settings.aiCampaignTone,
+      language: this.plugin.settings.aiLanguage,
     });
 
     const useFantasyStatblocks = this.plugin.settings.aiStatblockFormat === 'fantasy-statblocks';
@@ -677,6 +680,7 @@ export async function describeScene(plugin: CodexPlugin, file: TFile): Promise<v
   const systemPrompt = buildSystemPrompt(context, {
     ruleSystem: plugin.settings.aiRuleSystem,
     campaignTone: plugin.settings.aiCampaignTone,
+    language: plugin.settings.aiLanguage,
   });
 
   try {
@@ -725,6 +729,7 @@ export async function extractEntities(plugin: CodexPlugin, file: TFile): Promise
   const systemPrompt = buildSystemPrompt(context, {
     ruleSystem: plugin.settings.aiRuleSystem,
     campaignTone: plugin.settings.aiCampaignTone,
+    language: plugin.settings.aiLanguage,
   });
 
   const typeList = plugin.getEntityTypes().join(', ');

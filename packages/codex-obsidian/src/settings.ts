@@ -17,6 +17,7 @@ export interface CodexSettings {
   aiTemperature: number;
   aiRuleSystem: string;
   aiCampaignTone: string;
+  aiLanguage: string;
   aiStatblockFormat: StatblockFormat;
   aiRecentSessions: number;
   aiLinkDepth: number;
@@ -41,6 +42,7 @@ export const DEFAULT_SETTINGS: CodexSettings = {
   aiTemperature: 0.8,
   aiRuleSystem: 'D&D 5e',
   aiCampaignTone: '',
+  aiLanguage: 'English',
   aiStatblockFormat: 'fantasy-statblocks',
   aiRecentSessions: 3,
   aiLinkDepth: 1,
@@ -325,6 +327,27 @@ export class CodexSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           }),
       );
+
+    new Setting(containerEl)
+      .setName('Language')
+      .setDesc('Language for AI-generated prose, descriptions, and dialogue. Frontmatter keys and wiki-link syntax stay in English.')
+      .addDropdown(dropdown => {
+        const languages = [
+          'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese',
+          'Dutch', 'Polish', 'Swedish', 'Norwegian', 'Danish', 'Finnish',
+          'Russian', 'Ukrainian', 'Czech', 'Romanian', 'Hungarian',
+          'Japanese', 'Korean', 'Chinese (Simplified)', 'Chinese (Traditional)',
+          'Turkish', 'Arabic', 'Hebrew', 'Thai', 'Vietnamese', 'Indonesian',
+        ];
+        for (const lang of languages) {
+          dropdown.addOption(lang, lang);
+        }
+        dropdown.setValue(this.plugin.settings.aiLanguage);
+        dropdown.onChange(async (value) => {
+          this.plugin.settings.aiLanguage = value;
+          await this.plugin.saveSettings();
+        });
+      });
 
     new Setting(containerEl)
       .setName('Stat block format')

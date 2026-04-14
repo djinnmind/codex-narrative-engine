@@ -3,11 +3,13 @@ import type { VaultContext } from './types';
 export interface SystemPromptOptions {
   ruleSystem: string;
   campaignTone: string;
+  language: string;
 }
 
 const DEFAULT_OPTIONS: SystemPromptOptions = {
   ruleSystem: 'D&D 5e',
   campaignTone: '',
+  language: 'English',
 };
 
 /**
@@ -37,7 +39,7 @@ export function buildSystemPrompt(
     sections.push(buildRecentSessions(context));
   }
 
-  sections.push(GENERATION_RULES);
+  sections.push(buildGenerationRules(opts));
 
   return sections.join('\n\n');
 }
@@ -54,6 +56,7 @@ function buildCampaignMeta(opts: SystemPromptOptions, context: VaultContext): st
   const lines = ['CAMPAIGN INFO:'];
   if (opts.ruleSystem) lines.push(`- Rule System: ${opts.ruleSystem}`);
   if (opts.campaignTone) lines.push(`- Tone: ${opts.campaignTone}`);
+  if (opts.language && opts.language !== 'English') lines.push(`- Language: ${opts.language}`);
   lines.push(`- Total indexed entities: ${context.totalEntityCount}`);
   lines.push(`- Entities in current context: ${context.entities.length}`);
   return lines.join('\n');
@@ -98,12 +101,20 @@ function buildRecentSessions(context: VaultContext): string {
   return 'RECENT SESSIONS:\n' + context.recentSessions.join('\n\n');
 }
 
-const GENERATION_RULES = `RESPONSE RULES:
-- Use [[Entity Name]] wiki-link syntax when referencing existing campaign entities
-- When generating new entities, include valid YAML frontmatter with the appropriate type field
-- Maintain consistency with all established relationships, timelines, and character states
-- If asked to create content that would contradict existing lore, explain the contradiction and suggest alternatives
-- Keep the tone consistent with the campaign setting`;
+function buildGenerationRules(opts: SystemPromptOptions): string {
+  const lines = [
+    'RESPONSE RULES:',
+    '- Use [[Entity Name]] wiki-link syntax when referencing existing campaign entities',
+    '- When generating new entities, include valid YAML frontmatter with the appropriate type field',
+    '- Maintain consistency with all established relationships, timelines, and character states',
+    '- If asked to create content that would contradict existing lore, explain the contradiction and suggest alternatives',
+    '- Keep the tone consistent with the campaign setting',
+  ];
+  if (opts.language && opts.language !== 'English') {
+    lines.push(`- IMPORTANT: Write ALL prose, descriptions, and dialogue in ${opts.language}. Keep YAML frontmatter keys, type values, and wiki-link syntax in English.`);
+  }
+  return lines.join('\n');
+}
 
 function formatValue(v: unknown): string {
   if (typeof v === 'string') return v;
