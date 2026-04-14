@@ -1,6 +1,6 @@
 {
   "name": "@codex-ide/core",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Editor-agnostic narrative intelligence engine for TTRPG world-building",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

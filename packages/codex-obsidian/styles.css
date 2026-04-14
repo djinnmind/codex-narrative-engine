@@ -773,6 +773,77 @@
   gap: 8px;
 }
 
+/* ===== Generate Entity — Section Picker ===== */
+
+.codex-sections-wrapper.codex-sections-hidden {
+  display: none;
+}
+
+.codex-sections-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0;
+  cursor: pointer;
+  font-size: var(--font-ui-small);
+  color: var(--text-muted);
+  user-select: none;
+}
+
+.codex-sections-toggle:hover {
+  color: var(--text-normal);
+}
+
+.codex-sections-chevron {
+  font-size: var(--font-smallest);
+  width: 12px;
+  text-align: center;
+  transition: transform 0.15s ease;
+}
+
+.codex-sections-list {
+  max-height: 220px;
+  overflow-y: auto;
+  margin-bottom: 8px;
+}
+
+.codex-sections-list.codex-sections-collapsed {
+  display: none;
+}
+
+.codex-sections-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.codex-sections-row:hover {
+  background: var(--background-modifier-hover);
+}
+
+.codex-sections-row input[type="checkbox"] {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.codex-sections-label {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.codex-sections-name {
+  font-size: var(--font-ui-small);
+}
+
+.codex-sections-desc {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+}
+
 .codex-modal-textarea {
   width: 100%;
 }

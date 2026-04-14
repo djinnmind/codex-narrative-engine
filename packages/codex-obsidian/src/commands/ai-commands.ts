@@ -127,17 +127,24 @@ async function loadTemplate(plugin: CodexPlugin, type: string): Promise<string> 
   return DEFAULT_TEMPLATES[type] ?? `Include appropriate frontmatter with type: ${type} and relevant fields.`;
 }
 
-/**
- * Load a template and extract just the section names for the revise & complete prompt.
- */
-async function loadSectionGuide(plugin: CodexPlugin, type: string): Promise<string> {
-  const template = await loadTemplate(plugin, type);
-  const sectionNames: string[] = [];
+interface TemplateSection {
+  name: string;
+  fullLine: string;
+}
+
+function parseSections(template: string): TemplateSection[] {
+  const sections: TemplateSection[] = [];
   for (const line of template.split('\n')) {
     const match = line.match(/^-\s+(.+?)(?:\s*\(.*\))?$/);
-    if (match) sectionNames.push(match[1].trim());
+    if (match) sections.push({ name: match[1].trim(), fullLine: line });
   }
-  if (sectionNames.length > 0) return sectionNames.join(', ');
+  return sections;
+}
+
+async function loadSectionGuide(plugin: CodexPlugin, type: string): Promise<string> {
+  const template = await loadTemplate(plugin, type);
+  const sections = parseSections(template);
+  if (sections.length > 0) return sections.map(s => s.name).join(', ');
   return 'appropriate sections for the entity type';
 }
 
@@ -190,35 +197,173 @@ export async function enhanceNote(plugin: CodexPlugin, file: TFile): Promise<voi
   const provider = requireProvider(plugin);
   if (!provider) return;
 
-  const content = await plugin.app.vault.read(file);
-  const hideSpinner = showSpinner('Enhancing note…');
+  new EnhanceNoteModal(plugin, file).open();
+}
 
-  const entity = plugin.registry.getByPath(file.path);
-  const typeHint = entity ? entity.type : 'unknown';
+class EnhanceNoteModal extends Modal {
+  private plugin: CodexPlugin;
+  private file: TFile;
+  private sections: TemplateSection[] = [];
+  private selectedSections = new Set<string>();
+  private sectionsContainerEl!: HTMLElement;
+  private sectionsToggleLabel!: HTMLSpanElement;
 
-  const context = plugin.contextAssembler.assemble(content);
-  const systemPrompt = buildSystemPrompt(context, {
-    ruleSystem: plugin.settings.aiRuleSystem,
-    campaignTone: plugin.settings.aiCampaignTone,
-    language: plugin.settings.aiLanguage,
-  });
+  constructor(plugin: CodexPlugin, file: TFile) {
+    super(plugin.app);
+    this.plugin = plugin;
+    this.file = file;
+  }
 
-  const useFantasyStatblocks = plugin.settings.aiStatblockFormat === 'fantasy-statblocks';
+  onOpen(): void {
+    const { contentEl } = this;
+    contentEl.createEl('h3', { text: 'Enhance note' });
 
-  const statblockRule = useFantasyStatblocks
-    ? `- If a \`\`\`statblock code block exists, keep it but update values (hp, ac, cr, stats, traits, actions, etc.) if they contradict the surrounding prose. If no statblock exists and this is a creature or combat-relevant NPC, generate one in Fantasy Statblocks YAML format.`
-    : '- If markdown stat block tables exist, keep them but fix inconsistencies with the prose. If none exist and this is a creature or combat-relevant NPC, generate one as a markdown table.';
+    const entity = this.plugin.registry.getByPath(this.file.path);
+    const typeHint = entity ? entity.type : 'unknown';
 
-  const sections = await loadSectionGuide(plugin, typeHint);
+    contentEl.createEl('p', {
+      text: `${this.file.basename} (${typeHint})`,
+      cls: 'codex-revise-preview',
+    });
 
-  const instruction = `Enhance this ${typeHint} note for my TTRPG campaign. Return the ENTIRE file — frontmatter, body, everything — as a single complete markdown document.
+    const sectionsWrapper = contentEl.createDiv({ cls: 'codex-sections-wrapper' });
+
+    const toggle = sectionsWrapper.createDiv({ cls: 'codex-sections-toggle' });
+    toggle.createSpan({ cls: 'codex-sections-chevron', text: '▶' });
+    this.sectionsToggleLabel = toggle.createSpan({ text: 'Sections' });
+
+    this.sectionsContainerEl = sectionsWrapper.createDiv({ cls: 'codex-sections-list codex-sections-collapsed' });
+
+    toggle.addEventListener('click', () => {
+      const isCollapsed = this.sectionsContainerEl.hasClass('codex-sections-collapsed');
+      this.sectionsContainerEl.toggleClass('codex-sections-collapsed', !isCollapsed);
+      const chevron = toggle.querySelector('.codex-sections-chevron');
+      if (chevron) chevron.textContent = isCollapsed ? '▼' : '▶';
+    });
+
+    void this.loadSections(entity, typeHint);
+
+    new Setting(contentEl)
+      .addButton(btn =>
+        btn
+          .setButtonText('Enhance')
+          .setCta()
+          .onClick(() => {
+            this.close();
+            void this.doEnhance();
+          }),
+      )
+      .addButton(btn =>
+        btn
+          .setButtonText('Cancel')
+          .onClick(() => this.close()),
+      );
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
+  }
+
+  private async loadSections(
+    entity: { frontmatter: Record<string, unknown> } | undefined,
+    typeHint: string,
+  ): Promise<void> {
+    const template = await loadTemplate(this.plugin, typeHint);
+    this.sections = parseSections(template);
+
+    const fmSections = entity?.frontmatter.sections;
+    if (Array.isArray(fmSections) && fmSections.length > 0) {
+      const fmSet = new Set(fmSections as string[]);
+      this.selectedSections = new Set(
+        this.sections.filter(s => fmSet.has(s.name)).map(s => s.name),
+      );
+    } else {
+      this.selectedSections = new Set(this.sections.map(s => s.name));
+    }
+
+    this.renderSections();
+  }
+
+  private renderSections(): void {
+    this.sectionsContainerEl.empty();
+
+    if (this.sections.length === 0) {
+      this.sectionsToggleLabel.setText('Sections');
+      this.sectionsContainerEl.parentElement?.toggleClass('codex-sections-hidden', true);
+      return;
+    }
+
+    this.sectionsContainerEl.parentElement?.toggleClass('codex-sections-hidden', false);
+    this.updateSectionCount();
+
+    for (const section of this.sections) {
+      const row = this.sectionsContainerEl.createDiv({ cls: 'codex-sections-row' });
+
+      const checkbox = row.createEl('input', { type: 'checkbox' });
+      checkbox.checked = this.selectedSections.has(section.name);
+      checkbox.addEventListener('change', () => {
+        if (checkbox.checked) this.selectedSections.add(section.name);
+        else this.selectedSections.delete(section.name);
+        this.updateSectionCount();
+      });
+
+      const label = row.createDiv({ cls: 'codex-sections-label' });
+      label.createSpan({ text: section.name, cls: 'codex-sections-name' });
+
+      const descMatch = section.fullLine.match(/\((.+)\)\s*$/);
+      if (descMatch) {
+        label.createSpan({ text: descMatch[1], cls: 'codex-sections-desc' });
+      }
+    }
+  }
+
+  private updateSectionCount(): void {
+    const total = this.sections.length;
+    const selected = this.selectedSections.size;
+    this.sectionsToggleLabel.setText(`Sections (${selected}/${total})`);
+  }
+
+  private async doEnhance(): Promise<void> {
+    const provider = this.plugin.getProvider();
+    if (!provider) return;
+
+    const content = await this.plugin.app.vault.read(this.file);
+    const hideSpinner = showSpinner('Enhancing note…');
+
+    const entity = this.plugin.registry.getByPath(this.file.path);
+    const typeHint = entity ? entity.type : 'unknown';
+
+    const context = this.plugin.contextAssembler.assemble(content);
+    const systemPrompt = buildSystemPrompt(context, {
+      ruleSystem: this.plugin.settings.aiRuleSystem,
+      campaignTone: this.plugin.settings.aiCampaignTone,
+      language: this.plugin.settings.aiLanguage,
+    });
+
+    const useFantasyStatblocks = this.plugin.settings.aiStatblockFormat === 'fantasy-statblocks';
+
+    const statblockRule = useFantasyStatblocks
+      ? `- If a \`\`\`statblock code block exists, keep it but update values (hp, ac, cr, stats, traits, actions, etc.) if they contradict the surrounding prose. If no statblock exists and this is a creature or combat-relevant NPC, generate one in Fantasy Statblocks YAML format.`
+      : '- If markdown stat block tables exist, keep them but fix inconsistencies with the prose. If none exist and this is a creature or combat-relevant NPC, generate one as a markdown table.';
+
+    const allSections = this.sections;
+    const allSelected = allSections.length === 0 || this.selectedSections.size === allSections.length;
+    const sections = this.selectedSections.size > 0
+      ? [...this.selectedSections].join(', ')
+      : await loadSectionGuide(this.plugin, typeHint);
+
+    const completeGoal = allSelected
+      ? `5. **Complete** — fill in missing sections appropriate for a ${typeHint}. Generate plausible content consistent with existing lore.`
+      : `5. **Complete** — fill in missing content for these sections only: ${sections}. Do not add new sections beyond this list, but preserve any existing sections that already have content.`;
+
+    const instruction = `Enhance this ${typeHint} note for my TTRPG campaign. Return the ENTIRE file — frontmatter, body, everything — as a single complete markdown document.
 
 Goals (in priority order):
 1. **Fix frontmatter** — ensure valid YAML with correct type, name, and all standard fields for a ${typeHint}. Add any missing fields (status, location, faction, cr, tags, etc.). Keep existing values unless they contradict the body content.
 2. **Reconcile** — find contradictions between frontmatter, stat block, and prose. Resolve them in favor of the most specific or most recent information. If ambiguous, pick the version most consistent with the campaign context provided.
 3. **Reorganize** — reorder sections into a logical structure for a ${typeHint}: ${sections}. Merge duplicate sections. Use ## for major sections, ### for subsections.
 4. **Reformat** — fix broken markdown, standardize heading hierarchy, fix broken tables, clean up whitespace, convert plain-text entity names to [[wiki-links]] where they reference known vault entities.
-5. **Complete** — fill in missing sections appropriate for a ${typeHint}. Generate plausible content consistent with existing lore.
+${completeGoal}
 
 YAML frontmatter rules:
 - Keep the existing type and name fields exactly as they are
@@ -227,6 +372,7 @@ YAML frontmatter rules:
 - Do NOT use YAML anchors (&) or aliases (*)
 - Do NOT add "links_to" or "links" fields
 - tags should be a YAML list: tags: [tag1, tag2]
+- If a \`sections\` field exists in frontmatter, preserve it exactly as-is
 
 ${statblockRule}
 
@@ -238,29 +384,33 @@ Do NOT:
 
 Return ONLY the complete file content — no explanations before or after.
 
-Current file (${file.path}):
+Current file (${this.file.path}):
 
 ${content}`;
 
-  try {
-    const response = await provider.chat({
-      systemPrompt,
-      messages: [{ role: 'user', content: instruction }],
-      temperature: 0.4,
-      maxTokens: 16384,
-    });
-    hideSpinner();
+    try {
+      const response = await provider.chat({
+        systemPrompt,
+        messages: [{ role: 'user', content: instruction }],
+        temperature: 0.4,
+        maxTokens: 16384,
+      });
+      hideSpinner();
 
-    const newContent = extractMarkdown(response.content);
-    if (!newContent || newContent.trim().length < 20) {
-      new Notice('Codex: enhancement produced empty or invalid output.');
-      return;
+      let newContent = extractMarkdown(response.content);
+      if (!newContent || newContent.trim().length < 20) {
+        new Notice('Codex: enhancement produced empty or invalid output.');
+        return;
+      }
+
+      const selectedList = [...this.selectedSections];
+      newContent = injectSectionsField(newContent, selectedList);
+
+      await applySuggestedEdit(this.plugin, this.file, newContent, 'Enhance Note');
+    } catch (err: unknown) {
+      hideSpinner();
+      new Notice(`Codex: error — ${err instanceof Error ? err.message : 'unknown'}`);
     }
-
-    await applySuggestedEdit(plugin, file, newContent, 'Enhance Note');
-  } catch (err: unknown) {
-    hideSpinner();
-    new Notice(`Codex: error — ${err instanceof Error ? err.message : 'unknown'}`);
   }
 }
 
@@ -478,6 +628,10 @@ class GenerateEntityModal extends Modal {
   private entityName: string;
   private guidance: string;
   private surroundingContext: string;
+  private sections: TemplateSection[] = [];
+  private selectedSections = new Set<string>();
+  private sectionsContainerEl!: HTMLElement;
+  private sectionsToggleLabel!: HTMLSpanElement;
 
   constructor(plugin: CodexPlugin, opts?: GenerateEntityOptions) {
     super(plugin.app);
@@ -515,8 +669,28 @@ class GenerateEntityModal extends Modal {
           dropdown.addOption(t, t.charAt(0).toUpperCase() + t.slice(1));
         }
         dropdown.setValue(this.type);
-        dropdown.onChange(value => { this.type = value as EntityType; });
+        dropdown.onChange(value => {
+          this.type = value as EntityType;
+          void this.refreshSections();
+        });
       });
+
+    const sectionsWrapper = contentEl.createDiv({ cls: 'codex-sections-wrapper' });
+
+    const toggle = sectionsWrapper.createDiv({ cls: 'codex-sections-toggle' });
+    toggle.createSpan({ cls: 'codex-sections-chevron', text: '▶' });
+    this.sectionsToggleLabel = toggle.createSpan({ text: 'Sections' });
+
+    this.sectionsContainerEl = sectionsWrapper.createDiv({ cls: 'codex-sections-list codex-sections-collapsed' });
+
+    toggle.addEventListener('click', () => {
+      const isCollapsed = this.sectionsContainerEl.hasClass('codex-sections-collapsed');
+      this.sectionsContainerEl.toggleClass('codex-sections-collapsed', !isCollapsed);
+      const chevron = toggle.querySelector('.codex-sections-chevron');
+      if (chevron) chevron.textContent = isCollapsed ? '▼' : '▶';
+    });
+
+    void this.refreshSections();
 
     new Setting(contentEl)
       .setName('Description / guidance')
@@ -544,6 +718,52 @@ class GenerateEntityModal extends Modal {
 
   onClose(): void {
     this.contentEl.empty();
+  }
+
+  private async refreshSections(): Promise<void> {
+    const template = await loadTemplate(this.plugin, this.type);
+    this.sections = parseSections(template);
+    this.selectedSections = new Set(this.sections.map(s => s.name));
+    this.renderSections();
+  }
+
+  private renderSections(): void {
+    this.sectionsContainerEl.empty();
+
+    if (this.sections.length === 0) {
+      this.sectionsToggleLabel.setText('Sections');
+      this.sectionsContainerEl.parentElement?.toggleClass('codex-sections-hidden', true);
+      return;
+    }
+
+    this.sectionsContainerEl.parentElement?.toggleClass('codex-sections-hidden', false);
+    this.updateSectionCount();
+
+    for (const section of this.sections) {
+      const row = this.sectionsContainerEl.createDiv({ cls: 'codex-sections-row' });
+
+      const checkbox = row.createEl('input', { type: 'checkbox' });
+      checkbox.checked = this.selectedSections.has(section.name);
+      checkbox.addEventListener('change', () => {
+        if (checkbox.checked) this.selectedSections.add(section.name);
+        else this.selectedSections.delete(section.name);
+        this.updateSectionCount();
+      });
+
+      const label = row.createDiv({ cls: 'codex-sections-label' });
+      label.createSpan({ text: section.name, cls: 'codex-sections-name' });
+
+      const descMatch = section.fullLine.match(/\((.+)\)\s*$/);
+      if (descMatch) {
+        label.createSpan({ text: descMatch[1], cls: 'codex-sections-desc' });
+      }
+    }
+  }
+
+  private updateSectionCount(): void {
+    const total = this.sections.length;
+    const selected = this.selectedSections.size;
+    this.sectionsToggleLabel.setText(`Sections (${selected}/${total})`);
   }
 
   private async doGenerate(): Promise<void> {
@@ -600,8 +820,20 @@ Use the real stats for the generated creature — do NOT copy the example values
       : 'a properly formatted D&D 5e statblock with markdown tables.';
 
     let template = await loadTemplate(this.plugin, this.type);
+    const allSections = parseSections(template);
+    const allSelected = allSections.length === 0 || this.selectedSections.size === allSections.length;
 
-    const wantsStatblock = ['creature', 'npc'].includes(this.type);
+    if (!allSelected && allSections.length > 0) {
+      const filteredLines = template.split('\n').filter(line => {
+        const match = line.match(/^-\s+(.+?)(?:\s*\(.*\))?$/);
+        if (!match) return true;
+        return this.selectedSections.has(match[1].trim());
+      });
+      template = filteredLines.join('\n');
+    }
+
+    const wantsStatblock = ['creature', 'npc'].includes(this.type)
+      && (allSelected || this.selectedSections.has('Stat Block'));
     if (wantsStatblock) {
       template += `\n\nFor the stat block, include ${statblockInstruction}`;
     }
@@ -634,7 +866,12 @@ Return ONLY the complete markdown file content with frontmatter — no explanati
         temperature: 0.8,
       });
 
-      const content = extractMarkdown(response.content);
+      let content = extractMarkdown(response.content);
+
+      if (!allSelected && this.selectedSections.size > 0) {
+        content = injectSectionsField(content, [...this.selectedSections]);
+      }
+
       const name = extractNameFromContent(content) ?? `New ${this.type}`;
       const safeName = name.replace(/[\\/:*?"<>|]/g, '');
 
@@ -1018,6 +1255,20 @@ function parseEntityJSON(raw: string): ExtractedEntity[] {
   } catch {
     throw new Error('Could not parse entity JSON');
   }
+}
+
+function injectSectionsField(content: string, sectionNames: string[]): string {
+  const { existingFrontmatter, body } = splitFrontmatterAndBody(content);
+  if (!existingFrontmatter) return content;
+
+  const yamlList = sectionNames.map(s => `"${s}"`).join(', ');
+  const sectionsLine = `sections: [${yamlList}]`;
+  const fmLines = existingFrontmatter.split('\n');
+  const closingIdx = fmLines.lastIndexOf('---');
+  if (closingIdx > 0) {
+    fmLines.splice(closingIdx, 0, sectionsLine);
+  }
+  return fmLines.join('\n') + '\n' + body;
 }
 
 function splitContent(content: string): { existingFrontmatter: string | null; body: string } {

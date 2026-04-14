@@ -134,14 +134,14 @@ Expands a stub or incomplete entity note into a fully developed document.
 ### What It Does
 
 1. Reads the active note's content and entity type.
-2. Loads the matching template from `_codex/templates/` to know what sections to include.
+2. Checks the note's frontmatter for a `sections` field. If present, uses that list to scope which sections to generate. Otherwise, loads the full template from `_codex/templates/`.
 3. Sends the full note to the AI with instructions to:
    - Fix and complete frontmatter
    - Reconcile contradictions between frontmatter, stat block, and prose
-   - Reorganize content into the standard section structure for that entity type
+   - Reorganize content into the section structure (scoped or full)
    - Reformat markdown and convert plain entity names to `[[wiki-links]]`
-   - Fill in missing sections with plausible content
-4. Presents the result in a diff review modal.
+   - Fill in missing sections with plausible content (only for sections in the list)
+4. Presents the result in a diff review modal. Existing sections not in the `sections` list are preserved but not expanded.
 
 ### When to Use It
 
@@ -166,9 +166,22 @@ Run **AI: generate entity** to open a dialog where you specify:
 
 - **Name** (optional — the AI will choose one if left blank)
 - **Entity type** (NPC, creature, location, etc.)
+- **Sections** — a collapsible checklist of template sections (e.g. Description, Stat Block, Secrets). All are selected by default; uncheck any you don't need and the AI will only generate the checked sections. The list updates automatically when you change the entity type.
 - **Description / guidance** (optional hints like "a paranoid dwarf merchant" or "a haunted swamp temple")
 
 The AI generates a complete note with frontmatter, sections matching the entity template, and (for creatures/NPCs) an optional stat block. The file is created in the appropriate type folder and opened.
+
+### Section Selection and the `sections` Frontmatter Field
+
+When you uncheck sections in the generate dialog, Codex stores your selection as a `sections` field in the generated file's frontmatter:
+
+```yaml
+sections: ["Description", "Stat Block"]
+```
+
+This field is used later by **Enhance Note** to scope its work — it will only generate content for sections in this list, rather than filling in the full template. You can also add or edit the `sections` field manually in any entity's frontmatter to control what Enhance Note targets.
+
+If the `sections` field is absent, Enhance Note uses the full template as before.
 
 ### From the Context Menu
 

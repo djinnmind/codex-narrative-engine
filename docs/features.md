@@ -129,6 +129,8 @@ Created files include:
 - An `# Entity Name` heading
 - The file is opened automatically after creation
 
+> **Note:** Files created via **AI: generate entity** may also include a `sections` frontmatter field if you unchecked sections in the generation dialog. This field tells Enhance Note which sections to target. See the [AI Guide](ai-guide.md#section-selection-and-the-sections-frontmatter-field) for details.
+
 ## Rename Entity
 
 Rename an entity and update every reference across the vault in one operation.

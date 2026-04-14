@@ -106,6 +106,7 @@ The only required field is `type`. Everything else is optional but useful:
 - **`cr`** — challenge rating for creatures and combat NPCs.
 - **`date`** — for sessions and events; used to sort recent sessions in AI context.
 - **`tags`** — a YAML list for your own organization.
+- **`sections`** — a YAML list of section names (e.g. `["Description", "Stat Block"]`). Added automatically when you generate an entity with a custom section selection. Used by Enhance Note to scope which sections it generates. Optional — if absent, the full template is used.
 
 ## Entity Templates
 
