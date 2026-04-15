@@ -88,6 +88,17 @@ Sections:
 - Conclusion (possible endings and consequences)
 `,
 
+  arc: `Frontmatter: type, name, status, themes, tags
+
+Sections:
+- Overview (the arc's premise and central conflict in 2-3 sentences)
+- Key Events (major milestones and turning points in the arc)
+- Involved NPCs & Factions (characters and groups driving or affected by the arc)
+- Adventures (linked adventures that make up this arc, in order)
+- Resolution Conditions (how this arc can end — victory, failure, or compromise)
+- Open Threads (unresolved questions, foreshadowing, sequel hooks)
+`,
+
   session: `Frontmatter: type, name, date, session_number, tags
 
 Sections:
@@ -130,6 +141,12 @@ async function loadTemplate(plugin: CodexPlugin, type: string): Promise<string> 
 interface TemplateSection {
   name: string;
   fullLine: string;
+}
+
+function parseFrontmatterFields(template: string): string[] {
+  const match = template.match(/^Frontmatter:\s*(.+)$/m);
+  if (!match) return [];
+  return match[1].split(',').map(f => f.trim()).filter(Boolean);
 }
 
 function parseSections(template: string): TemplateSection[] {
@@ -186,6 +203,12 @@ export function registerAICommands(plugin: CodexPlugin): void {
       if (checking) return true;
       void extractEntities(plugin, file);
     },
+  });
+
+  plugin.addCommand({
+    id: 'ai-review-arc',
+    name: 'AI: review arc',
+    callback: () => reviewArc(plugin),
   });
 }
 
@@ -356,10 +379,16 @@ class EnhanceNoteModal extends Modal {
       ? `5. **Complete** — fill in missing sections appropriate for a ${typeHint}. Generate plausible content consistent with existing lore.`
       : `5. **Complete** — fill in missing content for these sections only: ${sections}. Do not add new sections beyond this list, but preserve any existing sections that already have content.`;
 
+    const template = await loadTemplate(this.plugin, typeHint);
+    const templateFields = parseFrontmatterFields(template);
+    const fieldHint = templateFields.length > 0
+      ? `The standard frontmatter fields for a ${typeHint} are: ${templateFields.join(', ')}. Only use these fields — do NOT add fields from other entity types.`
+      : `Add any missing fields appropriate for a ${typeHint}. Keep existing values unless they contradict the body content.`;
+
     const instruction = `Enhance this ${typeHint} note for my TTRPG campaign. Return the ENTIRE file — frontmatter, body, everything — as a single complete markdown document.
 
 Goals (in priority order):
-1. **Fix frontmatter** — ensure valid YAML with correct type, name, and all standard fields for a ${typeHint}. Add any missing fields (status, location, faction, cr, tags, etc.). Keep existing values unless they contradict the body content.
+1. **Fix frontmatter** — ensure valid YAML with correct type, name, and all standard fields for a ${typeHint}. ${fieldHint}
 2. **Reconcile** — find contradictions between frontmatter, stat block, and prose. Resolve them in favor of the most specific or most recent information. If ambiguous, pick the version most consistent with the campaign context provided.
 3. **Reorganize** — reorder sections into a logical structure for a ${typeHint}: ${sections}. Merge duplicate sections. Use ## for major sections, ### for subsections.
 4. **Reformat** — fix broken markdown, standardize heading hierarchy, fix broken tables, clean up whitespace, convert plain-text entity names to [[wiki-links]] where they reference known vault entities.
@@ -1192,6 +1221,439 @@ function buildEntityFrontmatter(entity: ExtractedEntity): string {
   }
 
   return lines.join('\n');
+}
+
+// ---------------------------------------------------------------------------
+// Review Arc — analyze an adventure for consistency and completeness
+// ---------------------------------------------------------------------------
+
+interface ArcSessionEntry {
+  name: string;
+  date: string;
+  filePath: string;
+}
+
+const ARC_REVIEWABLE_TYPES = new Set(['adventure', 'arc']);
+
+function addSessionFromEntity(
+  entity: { name: string; type: string; frontmatter: Record<string, unknown>; filePath: string },
+  sessionMap: Map<string, ArcSessionEntry>,
+): void {
+  if (entity.type === 'session' && !sessionMap.has(entity.filePath)) {
+    const date = typeof entity.frontmatter['date'] === 'string' ? entity.frontmatter['date'] : '';
+    sessionMap.set(entity.filePath, { name: entity.name, date, filePath: entity.filePath });
+  }
+}
+
+function resolveArcSessions(plugin: CodexPlugin, entityName: string, entityFilePath: string): ArcSessionEntry[] {
+  const registry = plugin.registry;
+  const sessionMap = new Map<string, ArcSessionEntry>();
+  const rootEntity = registry.getByPath(entityFilePath);
+
+  const entitiesToScan: { name: string; filePath: string }[] = [];
+  if (rootEntity) entitiesToScan.push({ name: rootEntity.name, filePath: rootEntity.filePath });
+
+  // For arc-type entities, also gather linked adventures to scan through
+  if (rootEntity && rootEntity.type === 'arc') {
+    for (const link of rootEntity.links) {
+      const targets = registry.getByName(link.target);
+      for (const t of targets) {
+        if (t.type === 'adventure') {
+          entitiesToScan.push({ name: t.name, filePath: t.filePath });
+        }
+      }
+    }
+    const arcBackRefs = registry.findReferences(rootEntity.name);
+    for (const ref of arcBackRefs) {
+      const src = registry.getByPath(ref.sourcePath);
+      if (src && src.type === 'adventure' && !entitiesToScan.some(e => e.filePath === src.filePath)) {
+        entitiesToScan.push({ name: src.name, filePath: src.filePath });
+      }
+    }
+  }
+
+  for (const scanTarget of entitiesToScan) {
+    const entity = registry.getByPath(scanTarget.filePath);
+    if (entity) {
+      for (const link of entity.links) {
+        const targets = registry.getByName(link.target);
+        for (const t of targets) addSessionFromEntity(t, sessionMap);
+      }
+    }
+
+    const backRefs = registry.findReferences(scanTarget.name);
+    for (const ref of backRefs) {
+      if (sessionMap.has(ref.sourcePath)) continue;
+      const sourceEntity = registry.getByPath(ref.sourcePath);
+      if (sourceEntity) addSessionFromEntity(sourceEntity, sessionMap);
+    }
+  }
+
+  return Array.from(sessionMap.values()).sort((a, b) => {
+    const da = a.date ? new Date(a.date).getTime() || 0 : 0;
+    const db = b.date ? new Date(b.date).getTime() || 0 : 0;
+    return da - db;
+  });
+}
+
+interface ArcContext {
+  adventure: { name: string; content: string };
+  sessions: { name: string; date: string; content: string }[];
+  referencedEntities: { name: string; type: string; frontmatter: Record<string, unknown>; bodyPreview: string }[];
+  worldRules: string[];
+  totalSessionCount: number;
+}
+
+async function assembleArcContext(
+  plugin: CodexPlugin,
+  adventureFilePath: string,
+  sessionFilePaths: string[],
+): Promise<ArcContext> {
+  const registry = plugin.registry;
+  const adventure = registry.getByPath(adventureFilePath);
+  const adventureName = adventure?.name ?? 'Unknown Adventure';
+
+  const adventureFile = plugin.app.vault.getAbstractFileByPath(adventureFilePath);
+  const adventureContent = adventureFile instanceof TFile
+    ? await plugin.app.vault.read(adventureFile)
+    : '';
+
+  const sessions: { name: string; date: string; content: string }[] = [];
+  const referencedEntityPaths = new Set<string>();
+
+  for (const sp of sessionFilePaths) {
+    const entity = registry.getByPath(sp);
+    if (!entity) continue;
+    const file = plugin.app.vault.getAbstractFileByPath(sp);
+    if (!(file instanceof TFile)) continue;
+    const content = await plugin.app.vault.read(file);
+    const date = typeof entity.frontmatter['date'] === 'string' ? entity.frontmatter['date'] : '';
+    sessions.push({ name: entity.name, date, content });
+
+    for (const link of entity.links) {
+      const targets = registry.getByName(link.target);
+      for (const t of targets) {
+        if (!ARC_REVIEWABLE_TYPES.has(t.type) && t.type !== 'session') {
+          referencedEntityPaths.add(t.filePath);
+        }
+      }
+    }
+  }
+
+  if (adventure) {
+    for (const link of adventure.links) {
+      const targets = registry.getByName(link.target);
+      for (const t of targets) {
+        if (!ARC_REVIEWABLE_TYPES.has(t.type) && t.type !== 'session') {
+          referencedEntityPaths.add(t.filePath);
+        }
+      }
+    }
+  }
+
+  const referencedEntities = Array.from(referencedEntityPaths)
+    .map(fp => registry.getByPath(fp))
+    .filter((e): e is NonNullable<typeof e> => e != null)
+    .slice(0, 80)
+    .map(e => ({
+      name: e.name,
+      type: e.type,
+      frontmatter: e.frontmatter,
+      bodyPreview: e.bodyPreview,
+    }));
+
+  const worldRules = registry.getByType('world')
+    .map(w => `## ${w.name}\n${w.bodyPreview}`);
+
+  return {
+    adventure: { name: adventureName, content: adventureContent },
+    sessions,
+    referencedEntities,
+    worldRules,
+    totalSessionCount: sessions.length,
+  };
+}
+
+function reviewArc(plugin: CodexPlugin): void {
+  const provider = requireProvider(plugin);
+  if (!provider) return;
+
+  const reviewable = [
+    ...plugin.registry.getByType('arc'),
+    ...plugin.registry.getByType('adventure'),
+  ];
+  if (reviewable.length === 0) {
+    new Notice('Codex: no adventure or arc entities found. Create one first.');
+    return;
+  }
+
+  new ReviewArcModal(plugin).open();
+}
+
+class ReviewArcModal extends Modal {
+  private plugin: CodexPlugin;
+  private selectedAdventurePath = '';
+  private allSessions: ArcSessionEntry[] = [];
+  private selectedSessions = new Set<string>();
+  private sessionsContainerEl!: HTMLElement;
+  private sessionsToggleLabel!: HTMLSpanElement;
+  private reviewFocus = '';
+
+  constructor(plugin: CodexPlugin) {
+    super(plugin.app);
+    this.plugin = plugin;
+  }
+
+  onOpen(): void {
+    const { contentEl } = this;
+    contentEl.createEl('h3', { text: 'Review arc' });
+
+    const arcs = this.plugin.registry.getByType('arc');
+    const adventures = this.plugin.registry.getByType('adventure');
+
+    new Setting(contentEl)
+      .setName('Arc / Adventure')
+      .setDesc('Select the arc or adventure to review.')
+      .addDropdown(dropdown => {
+        dropdown.addOption('', '— Select —');
+        for (const arc of arcs) {
+          dropdown.addOption(arc.filePath, `[Arc] ${arc.name}`);
+        }
+        for (const adv of adventures) {
+          dropdown.addOption(adv.filePath, adv.name);
+        }
+        dropdown.onChange(value => {
+          this.selectedAdventurePath = value;
+          if (value) {
+            const adv = this.plugin.registry.getByPath(value);
+            this.allSessions = resolveArcSessions(this.plugin, adv?.name ?? '', value);
+          } else {
+            this.allSessions = [];
+          }
+          this.selectedSessions = new Set(this.allSessions.map(s => s.filePath));
+          this.renderSessions();
+        });
+      });
+
+    const sessionsWrapper = contentEl.createDiv({ cls: 'codex-sections-wrapper' });
+
+    const toggle = sessionsWrapper.createDiv({ cls: 'codex-sections-toggle' });
+    toggle.createSpan({ cls: 'codex-sections-chevron', text: '▶' });
+    this.sessionsToggleLabel = toggle.createSpan({ text: 'Sessions' });
+
+    this.sessionsContainerEl = sessionsWrapper.createDiv({ cls: 'codex-sections-list codex-sections-collapsed' });
+
+    toggle.addEventListener('click', () => {
+      const isCollapsed = this.sessionsContainerEl.hasClass('codex-sections-collapsed');
+      this.sessionsContainerEl.toggleClass('codex-sections-collapsed', !isCollapsed);
+      const chevron = toggle.querySelector('.codex-sections-chevron');
+      if (chevron) chevron.textContent = isCollapsed ? '▼' : '▶';
+    });
+
+    new Setting(contentEl)
+      .setName('Review focus')
+      .setDesc('Optional — specific areas to focus on (e.g., "timeline around the siege").')
+      .addTextArea(text => {
+        text
+          .setPlaceholder('Leave blank for a general review')
+          .onChange(value => { this.reviewFocus = value; });
+        text.inputEl.rows = 2;
+        text.inputEl.addClass('codex-modal-textarea');
+      });
+
+    new Setting(contentEl)
+      .addButton(btn =>
+        btn
+          .setButtonText('Review')
+          .setCta()
+          .onClick(() => {
+            if (!this.selectedAdventurePath) {
+              new Notice('Select an adventure first.');
+              return;
+            }
+            if (this.selectedSessions.size === 0) {
+              new Notice('Select at least one session.');
+              return;
+            }
+            this.close();
+            void this.doReview();
+          }),
+      )
+      .addButton(btn =>
+        btn
+          .setButtonText('Cancel')
+          .onClick(() => this.close()),
+      );
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
+  }
+
+  private renderSessions(): void {
+    this.sessionsContainerEl.empty();
+
+    if (this.allSessions.length === 0) {
+      this.sessionsToggleLabel.setText('Sessions');
+      this.sessionsContainerEl.parentElement?.toggleClass('codex-sections-hidden', true);
+      return;
+    }
+
+    this.sessionsContainerEl.parentElement?.toggleClass('codex-sections-hidden', false);
+    this.updateSessionCount();
+
+    for (const session of this.allSessions) {
+      const row = this.sessionsContainerEl.createDiv({ cls: 'codex-sections-row' });
+
+      const checkbox = row.createEl('input', { type: 'checkbox' });
+      checkbox.checked = this.selectedSessions.has(session.filePath);
+      checkbox.addEventListener('change', () => {
+        if (checkbox.checked) this.selectedSessions.add(session.filePath);
+        else this.selectedSessions.delete(session.filePath);
+        this.updateSessionCount();
+      });
+
+      const label = row.createDiv({ cls: 'codex-sections-label' });
+      label.createSpan({ text: session.name, cls: 'codex-sections-name' });
+      if (session.date) {
+        label.createSpan({ text: session.date, cls: 'codex-sections-desc' });
+      }
+    }
+  }
+
+  private updateSessionCount(): void {
+    const total = this.allSessions.length;
+    const selected = this.selectedSessions.size;
+    this.sessionsToggleLabel.setText(`Sessions (${selected}/${total})`);
+  }
+
+  private async doReview(): Promise<void> {
+    const provider = this.plugin.getProvider();
+    if (!provider) return;
+
+    const maxSessions = this.plugin.settings.aiReviewMaxSessions;
+    const sessionPaths = this.allSessions
+      .filter(s => this.selectedSessions.has(s.filePath))
+      .slice(0, maxSessions)
+      .map(s => s.filePath);
+
+    const hideSpinner = showSpinner('Reviewing arc…');
+
+    try {
+      const arcCtx = await assembleArcContext(this.plugin, this.selectedAdventurePath, sessionPaths);
+
+      const contextEntities = arcCtx.referencedEntities.map(e => this.plugin.contextAssembler.assemble(e.name));
+      const mergedContext = contextEntities.length > 0 ? contextEntities[0] : { entities: [], recentSessions: [], worldRules: arcCtx.worldRules, totalEntityCount: this.plugin.registry.getAllEntities().length };
+      mergedContext.worldRules = arcCtx.worldRules;
+      mergedContext.recentSessions = [];
+
+      const systemPrompt = buildSystemPrompt(mergedContext, {
+        ruleSystem: this.plugin.settings.aiRuleSystem,
+        campaignTone: this.plugin.settings.aiCampaignTone,
+        language: this.plugin.settings.aiLanguage,
+      });
+
+      let sessionsBlock = '';
+      for (const session of arcCtx.sessions) {
+        const dateLabel = session.date ? ` (${session.date})` : '';
+        sessionsBlock += `\n## ${session.name}${dateLabel}\n${session.content}\n`;
+      }
+
+      let entityBlock = '';
+      if (arcCtx.referencedEntities.length > 0) {
+        entityBlock = '\nREFERENCED ENTITIES:\n';
+        for (const e of arcCtx.referencedEntities) {
+          const fmEntries = Object.entries(e.frontmatter)
+            .filter(([k]) => k !== 'type' && k !== 'name')
+            .map(([k, v]) => `  ${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`)
+            .join('\n');
+          entityBlock += `\n### ${e.name} (${e.type})\n`;
+          if (fmEntries) entityBlock += fmEntries + '\n';
+          if (e.bodyPreview) entityBlock += e.bodyPreview + '\n';
+        }
+      }
+
+      const focusInstruction = this.reviewFocus.trim()
+        ? `\nPay special attention to: ${this.reviewFocus.trim()}\n`
+        : '';
+
+      const instruction = `You are reviewing the following adventure arc for narrative quality, consistency, and completeness.
+
+ADVENTURE:
+${arcCtx.adventure.content}
+
+SESSIONS (in chronological order):
+${sessionsBlock}
+${entityBlock}
+${focusInstruction}
+Analyze this arc and produce a structured review covering:
+
+1. **Timeline Consistency** — Are dates, event sequences, and cause-effect chains coherent? Flag any contradictions.
+2. **Character Continuity** — Do NPCs behave consistently? Are any referenced but never introduced, or dropped without resolution?
+3. **Plot Thread Tracking** — List all open threads from "Open Threads" sections or implied by the narrative. Which are resolved? Which are dangling?
+4. **World Consistency** — Do locations, factions, and items remain consistent with their descriptions across sessions?
+5. **Completeness** — What sections of the adventure outline have not yet been covered by sessions? Estimate what percentage of the arc is complete.
+6. **Suggestions** — Concrete recommendations for the next session or areas needing revision.
+
+Format each section as a markdown heading (##). Use [[wiki-links]] for entity references. Be specific — cite session names and entity names when flagging issues.`;
+
+      const response = await provider.chat({
+        systemPrompt,
+        messages: [{ role: 'user', content: instruction }],
+        temperature: 0.3,
+        maxTokens: 16384,
+      });
+
+      hideSpinner();
+
+      let reviewContent = extractMarkdown(response.content);
+      if (!reviewContent || reviewContent.trim().length < 20) {
+        new Notice('Codex: arc review produced empty or invalid output.');
+        return;
+      }
+
+      const adventureName = arcCtx.adventure.name;
+      const safeName = adventureName.replace(/[\\/:*?"<>|]/g, '');
+      const sessionLinks = arcCtx.sessions.map(s => `"[[${s.name}]]"`).join(', ');
+      const today = new Date().toISOString().split('T')[0];
+
+      const frontmatter = `---
+type: custom
+name: "Arc Review: ${adventureName}"
+reviewed_adventure: "[[${adventureName}]]"
+sessions_reviewed: [${sessionLinks}]
+date: ${today}
+tags: [arc-review]
+---
+
+`;
+
+      reviewContent = frontmatter + reviewContent;
+
+      const reviewFolder = '_codex/reviews';
+      if (!this.plugin.app.vault.getAbstractFileByPath(reviewFolder)) {
+        await this.plugin.app.vault.createFolder(reviewFolder);
+      }
+
+      let filePath = `${reviewFolder}/${safeName} - Review.md`;
+      const existing = this.plugin.app.vault.getAbstractFileByPath(filePath);
+      if (existing) {
+        filePath = `${reviewFolder}/${safeName} - Review ${today}.md`;
+        const existingDated = this.plugin.app.vault.getAbstractFileByPath(filePath);
+        if (existingDated) {
+          filePath = `${reviewFolder}/${safeName} - Review ${Date.now()}.md`;
+        }
+      }
+
+      const newFile = await this.plugin.app.vault.create(filePath, reviewContent);
+      const leaf = this.plugin.app.workspace.getLeaf(false);
+      await leaf.openFile(newFile);
+      new Notice(`Codex: arc review saved to ${filePath}`);
+    } catch (err: unknown) {
+      hideSpinner();
+      new Notice(`Codex: error — ${err instanceof Error ? err.message : 'unknown'}`);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------

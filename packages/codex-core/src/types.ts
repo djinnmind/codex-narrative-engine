@@ -1,6 +1,6 @@
 export const DEFAULT_ENTITY_TYPES = [
   'npc', 'creature', 'location', 'faction', 'item',
-  'session', 'quest', 'adventure', 'event', 'world', 'rules', 'handout',
+  'session', 'quest', 'adventure', 'arc', 'event', 'world', 'rules', 'handout',
 ] as const;
 
 export const ENTITY_TYPES = [...DEFAULT_ENTITY_TYPES, 'custom'] as const;

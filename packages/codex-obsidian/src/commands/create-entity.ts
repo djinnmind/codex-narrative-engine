@@ -10,6 +10,7 @@ const ENTITY_TEMPLATES: Record<string, (name: string) => string> = {
   session: (name) => `---\ntype: session\nname: "${name}"\ndate: ${new Date().toISOString().split('T')[0]}\ntags: []\n---\n\n`,
   quest: (name) => `---\ntype: quest\nname: "${name}"\nstatus: active\ntags: []\n---\n\n`,
   adventure: (name) => `---\ntype: adventure\nname: "${name}"\nstatus: active\ntags: []\n---\n\n`,
+  arc: (name) => `---\ntype: arc\nname: "${name}"\nstatus: active\ntags: []\n---\n\n`,
   event: (name) => `---\ntype: event\nname: "${name}"\ntags: []\n---\n\n`,
   world: (name) => `---\ntype: world\nname: "${name}"\ntags: []\n---\n\n`,
   rules: (name) => `---\ntype: rules\nname: "${name}"\ntags: []\n---\n\n`,
@@ -30,6 +31,7 @@ const TYPE_FOLDERS: Record<string, string> = {
   session: 'sessions',
   quest: 'quests',
   adventure: 'adventures',
+  arc: 'arcs',
   event: 'events',
   world: 'world',
   rules: 'rules',
@@ -97,6 +99,12 @@ class CreateEntityModal extends Modal {
   onClose(): void {
     this.contentEl.empty();
   }
+}
+
+export function startCreateEntity(plugin: CodexPlugin, suggestedName: string): void {
+  new CreateEntityModal(plugin, suggestedName, (type, name) => {
+    void createEntityFile(plugin, type, name);
+  }).open();
 }
 
 export function registerCreateEntityCommand(plugin: CodexPlugin): void {

@@ -6,6 +6,7 @@ import type {
   ChatChunk,
   ConnectionTestResult,
 } from '@codex-ide/core';
+import { withRetry } from './retry';
 
 interface GeminiContent {
   role: string;
@@ -28,6 +29,10 @@ export class GeminiAdapter implements LLMProvider {
   }
 
   async chat(request: ChatRequest): Promise<ChatResponse> {
+    return withRetry(() => this.doChat(request), 'Gemini');
+  }
+
+  private async doChat(request: ChatRequest): Promise<ChatResponse> {
     const url = `${this.baseUrl}/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`;
     console.debug(`Codex AI: POST ${this.baseUrl}/v1beta/models/${this.model}:generateContent`);
 

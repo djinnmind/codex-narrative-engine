@@ -15,7 +15,7 @@ import {
   hasSuggestions, getHunkIdAtCursor, dismissSingleHunk, rejectSingleHunk,
 } from './ui/suggestion-decorations';
 import { registerRenameCommand, startRename } from './commands/rename-entity';
-import { registerCreateEntityCommand } from './commands/create-entity';
+import { registerCreateEntityCommand, startCreateEntity } from './commands/create-entity';
 import {
   registerAICommands, DEFAULT_TEMPLATES,
   enhanceNote, describeScene, extractEntities,
@@ -258,6 +258,33 @@ export default class CodexPlugin extends Plugin {
             item.setTitle(`Rename "${entity.name}"…`).setIcon('pencil-line')
               .onClick(() => { void startRename(this, file); }),
           );
+        }
+
+        // "Create entity from dead link" when cursor is inside a [[link]] that doesn't resolve
+        if (cm) {
+          const cursor = cm.state.selection.main.head;
+          const lineText = cm.state.doc.lineAt(cursor).text;
+          const lineStart = cm.state.doc.lineAt(cursor).from;
+          const colInLine = cursor - lineStart;
+
+          const linkRegex = /\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g;
+          let linkMatch;
+          while ((linkMatch = linkRegex.exec(lineText)) !== null) {
+            const matchStart = linkMatch.index;
+            const matchEnd = matchStart + linkMatch[0].length;
+            if (colInLine >= matchStart && colInLine <= matchEnd) {
+              const linkTarget = linkMatch[1].trim();
+              const resolved = this.app.metadataCache.getFirstLinkpathDest(linkTarget, file.path);
+              const codexResolved = this.registry.getByName(linkTarget);
+              if (!resolved && codexResolved.length === 0) {
+                menu.addItem((item) =>
+                  item.setTitle(`Create "${linkTarget}"…`).setIcon('file-plus')
+                    .onClick(() => startCreateEntity(this, linkTarget)),
+                );
+              }
+              break;
+            }
+          }
         }
       }),
     );

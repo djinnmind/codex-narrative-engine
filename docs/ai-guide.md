@@ -194,6 +194,57 @@ Generated stat blocks follow your **Stat block format** setting:
 - **Fantasy Statblocks (plugin)** — generates a ```` ```statblock ```` YAML code block compatible with the [Fantasy Statblocks](https://github.com/javalent/fantasy-statblocks) plugin.
 - **Markdown tables** — generates a standard markdown table stat block.
 
+## AI: Review Arc
+
+Analyzes an adventure arc and its associated sessions for narrative consistency, completeness, open threads, and structural quality, then generates a structured review note.
+
+### What It Does
+
+1. Opens a modal where you select an **adventure** entity from your vault.
+2. Automatically discovers sessions linked to that adventure (via forward wiki-links from the adventure and back-references from sessions). All discovered sessions are pre-selected; you can check/uncheck individual sessions.
+3. Optionally accepts a **review focus** — a free-text description of specific areas to examine (e.g., "timeline around the siege of Ironhold").
+4. Reads the **full content** of the adventure and every selected session (not just previews), plus summaries of all entities referenced across those files.
+5. Sends everything to the AI with a structured analytical prompt covering six review areas.
+6. Saves the AI's review as a new note in `_codex/reviews/`.
+
+### Review Sections
+
+The AI produces a structured review covering:
+
+- **Timeline Consistency** — dates, event sequences, and cause-effect coherence
+- **Character Continuity** — NPC behavior consistency, missing introductions, dropped characters
+- **Plot Thread Tracking** — open threads from sessions, which are resolved vs. dangling
+- **World Consistency** — locations, factions, and items staying consistent across sessions
+- **Completeness** — adventure outline coverage, estimated arc completion percentage
+- **Suggestions** — recommendations for the next session or areas needing revision
+
+### Output Format
+
+The review is saved as `_codex/reviews/<Adventure Name> - Review.md` with frontmatter:
+
+```yaml
+---
+type: custom
+name: "Arc Review: Curse of Blackmoss"
+reviewed_adventure: "[[Curse of Blackmoss]]"
+sessions_reviewed: ["[[Session 1]]", "[[Session 2]]"]
+date: 2026-04-14
+tags: [arc-review]
+---
+```
+
+If a review already exists for the same adventure, a date-stamped version is created instead.
+
+### How to Run It
+
+- Command palette: **AI: review arc**
+
+### Limitations
+
+- The free (BYOK) tier sends all content in a single LLM call. Very long arcs (many sessions) may approach your model's context window limit. The **Max sessions for arc review** setting (default 20, configurable 1–50 in Settings > AI context) caps how many sessions are included.
+- Session discovery relies on wiki-links between adventure and session notes. If your sessions don't link to the adventure (or vice versa), they won't be auto-discovered — but you can manually check them in the modal.
+- The review is a single-pass analysis. For multi-pass deep analysis with semantic search, a future Codex Cloud tier will offer enhanced arc review.
+
 ## AI: Describe Scene (Read-Aloud)
 
 Generates atmospheric read-aloud text for a location or session scene.

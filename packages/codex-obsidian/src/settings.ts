@@ -23,6 +23,7 @@ export interface CodexSettings {
   aiLinkDepth: number;
   aiIncludeWorld: boolean;
   aiExcludedFolders: string;
+  aiReviewMaxSessions: number;
   statblockWidth: number;
   templateFolder: string;
   entityTypes: string[];
@@ -48,6 +49,7 @@ export const DEFAULT_SETTINGS: CodexSettings = {
   aiLinkDepth: 1,
   aiIncludeWorld: true,
   aiExcludedFolders: '',
+  aiReviewMaxSessions: 20,
   statblockWidth: 600,
   templateFolder: '_codex/templates',
   entityTypes: [...DEFAULT_ENTITY_TYPES],
@@ -292,6 +294,20 @@ export class CodexSettingTab extends PluginSettingTab {
           .setValue(this.plugin.settings.aiExcludedFolders)
           .onChange(async (value) => {
             this.plugin.settings.aiExcludedFolders = value;
+            await this.plugin.saveSettings();
+          }),
+      );
+
+    new Setting(containerEl)
+      .setName('Max sessions for arc review')
+      .setDesc('Maximum number of sessions to include when reviewing an adventure arc (1–50).')
+      .addSlider(slider =>
+        slider
+          .setLimits(1, 50, 1)
+          .setValue(this.plugin.settings.aiReviewMaxSessions)
+          .setDynamicTooltip()
+          .onChange(async (value) => {
+            this.plugin.settings.aiReviewMaxSessions = value;
             await this.plugin.saveSettings();
           }),
       );

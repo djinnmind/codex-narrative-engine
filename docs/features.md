@@ -171,6 +171,24 @@ This improves both link resolution and autocomplete for plural references.
 
 Run this after a large import or when you notice plural links not resolving. It's safe to run multiple times — existing aliases are preserved and duplicates are skipped.
 
+## Arc Review
+
+Codex can analyze an entire adventure arc for narrative consistency and completeness using AI.
+
+### What It Checks
+
+Given an adventure entity and its linked sessions, the AI reviews:
+
+- **Timeline consistency** across sessions
+- **Character continuity** (NPCs introduced, dropped, or behaving inconsistently)
+- **Plot thread tracking** (open threads resolved vs. dangling)
+- **World consistency** (locations, factions, items)
+- **Arc completeness** (how much of the adventure outline has been covered)
+
+### Output
+
+The review is saved as a note in `_codex/reviews/` with frontmatter linking back to the adventure and sessions reviewed. See the [AI Guide](ai-guide.md#ai-review-arc) for full details.
+
 ## Next Steps
 
 - [AI Guide](ai-guide.md) — set up a provider and learn how Lore Chat, Enhance Note, and other AI commands work

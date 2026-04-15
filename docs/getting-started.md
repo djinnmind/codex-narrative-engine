@@ -66,6 +66,7 @@ The built-in types are:
 | `item` | Magic items, artifacts, equipment |
 | `quest` | Active or completed quests |
 | `adventure` | Multi-session adventure arcs |
+| `arc` | Campaign arcs spanning multiple adventures |
 | `session` | Session logs and recaps |
 | `event` | Historical or plot events |
 | `world` | Cosmology, pantheons, world rules (always included in AI context) |

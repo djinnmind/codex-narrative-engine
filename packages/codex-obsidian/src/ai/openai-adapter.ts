@@ -6,6 +6,7 @@ import type {
   ChatChunk,
   ConnectionTestResult,
 } from '@codex-ide/core';
+import { withRetry } from './retry';
 
 /**
  * Adapter for any OpenAI-compatible API. Covers:
@@ -35,6 +36,10 @@ export class OpenAIAdapter implements LLMProvider {
   }
 
   async chat(request: ChatRequest): Promise<ChatResponse> {
+    return withRetry(() => this.doChat(request), this.name);
+  }
+
+  private async doChat(request: ChatRequest): Promise<ChatResponse> {
     const url = `${this.baseUrl}/chat/completions`;
 
     const messages: { role: string; content: string }[] = [];
@@ -62,7 +67,13 @@ export class OpenAIAdapter implements LLMProvider {
         temperature: request.temperature ?? 0.8,
         max_tokens: request.maxTokens ?? 4096,
       }),
+      throw: false,
     });
+
+    if (response.status !== 200) {
+      const errBody = typeof response.text === 'string' ? response.text : JSON.stringify(response.json);
+      throw new Error(`${this.name} API error ${response.status}: ${response.json?.error?.message ?? errBody.slice(0, 200)}`);
+    }
 
     const data = response.json;
     const content = data?.choices?.[0]?.message?.content ?? '';

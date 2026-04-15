@@ -6,6 +6,7 @@ import type {
   ChatChunk,
   ConnectionTestResult,
 } from '@codex-ide/core';
+import { withRetry } from './retry';
 
 export class AnthropicAdapter implements LLMProvider {
   readonly id = 'anthropic';
@@ -23,6 +24,10 @@ export class AnthropicAdapter implements LLMProvider {
   }
 
   async chat(request: ChatRequest): Promise<ChatResponse> {
+    return withRetry(() => this.doChat(request), 'Anthropic');
+  }
+
+  private async doChat(request: ChatRequest): Promise<ChatResponse> {
     const url = `${this.baseUrl}/messages`;
 
     const messages: { role: string; content: string }[] = [];
@@ -46,7 +51,13 @@ export class AnthropicAdapter implements LLMProvider {
         system: request.systemPrompt || undefined,
         messages,
       }),
+      throw: false,
     });
+
+    if (response.status !== 200) {
+      const errBody = typeof response.text === 'string' ? response.text : JSON.stringify(response.json);
+      throw new Error(`Anthropic API error ${response.status}: ${response.json?.error?.message ?? errBody.slice(0, 200)}`);
+    }
 
     const data = response.json;
     const content = data?.content?.[0]?.text ?? '';

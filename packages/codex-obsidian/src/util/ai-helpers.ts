@@ -10,6 +10,7 @@ export const ENTITY_FOLDER_MAP: Record<string, string> = {
   item: 'items',
   quest: 'quests',
   adventure: 'adventures',
+  arc: 'arcs',
   session: 'sessions',
   event: 'events',
   world: 'world',
@@ -18,16 +19,22 @@ export const ENTITY_FOLDER_MAP: Record<string, string> = {
 /**
  * Strip outer markdown code fences from an AI response and sanitize
  * Fantasy Statblocks YAML blocks.
+ *
+ * Only strips the wrapper if the response both starts AND ends with a code
+ * fence — this avoids accidentally truncating content when inner fences
+ * (e.g. ```yaml blocks) appear mid-response.
  */
 export function extractMarkdown(response: string): string {
   const trimmed = response.trim();
 
   let content: string;
   const outerFenceStart = trimmed.match(/^```\w*\s*\n/);
-  if (outerFenceStart) {
-    const lastFence = trimmed.lastIndexOf('```');
-    if (lastFence > outerFenceStart[0].length) {
-      content = trimmed.slice(outerFenceStart[0].length, lastFence).trim() + '\n';
+  const endsWithFence = /\n```\s*$/.test(trimmed);
+
+  if (outerFenceStart && endsWithFence) {
+    const closingIdx = trimmed.lastIndexOf('\n```');
+    if (closingIdx > outerFenceStart[0].length) {
+      content = trimmed.slice(outerFenceStart[0].length, closingIdx).trim() + '\n';
     } else {
       content = trimmed + '\n';
     }
