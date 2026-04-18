@@ -10,7 +10,7 @@ This guide walks you through installing Codex Narrative Engine, setting up your 
 
 1. Install **BRAT** from Settings > Community Plugins (search "BRAT").
 2. Open **Settings > BRAT > Add Beta Plugin**.
-3. Enter `jdicorpo/codex-narrative-engine` and click **Add Plugin**.
+3. Enter `djinnmind/codex-narrative-engine` and click **Add Plugin**.
 4. Enable **Codex Narrative Engine** in Settings > Community Plugins.
 
 ### From Obsidian Community Plugins (coming soon)
@@ -21,7 +21,7 @@ This guide walks you through installing Codex Narrative Engine, setting up your 
 
 ### Manual / Sideload
 
-1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/jdicorpo/codex-narrative-engine/releases/latest).
+1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/djinnmind/codex-narrative-engine/releases/latest).
 2. In your vault's `.obsidian/plugins/` folder, create a subfolder called `codex-narrative-engine`.
 3. Copy the three downloaded files into that subfolder.
 4. Open **Settings > Community Plugins**, click the refresh button, and enable **Codex Narrative Engine**.

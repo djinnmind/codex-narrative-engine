@@ -49,7 +49,7 @@ All AI features use your own API key — no subscription required. Supports **Go
 
 1. Install **BRAT** from Settings > Community Plugins (search "BRAT")
 2. Open **Settings > BRAT > Add Beta Plugin**
-3. Enter `jdicorpo/codex-narrative-engine` and click **Add Plugin**
+3. Enter `djinnmind/codex-narrative-engine` and click **Add Plugin**
 4. Enable **Codex Narrative Engine** in Settings > Community Plugins
 
 ### From Obsidian Community Plugins (coming soon)
@@ -60,7 +60,7 @@ All AI features use your own API key — no subscription required. Supports **Go
 
 ### Manual / Sideload
 
-1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/jdicorpo/codex-narrative-engine/releases/latest).
+1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/djinnmind/codex-narrative-engine/releases/latest).
 2. Create a folder in your vault: `.obsidian/plugins/codex-narrative-engine/`
 3. Copy the downloaded files into that folder.
 4. Open **Settings > Community Plugins**, refresh the list, and enable **Codex Narrative Engine**.
@@ -70,7 +70,7 @@ All AI features use your own API key — no subscription required. Supports **Go
 Requires [Node.js](https://nodejs.org) 18+.
 
 ```bash
-git clone https://github.com/jdicorpo/codex-narrative-engine.git
+git clone https://github.com/djinnmind/codex-narrative-engine.git
 cd codex-narrative-engine
 npm install
 npm run build
