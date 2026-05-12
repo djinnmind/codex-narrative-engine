@@ -326,21 +326,13 @@ export default class CodexPlugin extends Plugin {
     return this.settings.entityTypes;
   }
 
-  private statblockStyleEl: HTMLStyleElement | null = null;
-
   applyStatblockWidth(): void {
-    this.removeStatblockStyle();
     const width = this.settings.statblockWidth ?? 600;
-    const el = document.createElement('style');
-    el.id = 'codex-statblock-width';
-    el.textContent = `.statblock .statblock-content > .column { width: ${width}px !important; }`;
-    document.head.appendChild(el);
-    this.statblockStyleEl = el;
+    document.body.style.setProperty('--codex-statblock-width', `${width}px`);
   }
 
   private removeStatblockStyle(): void {
-    this.statblockStyleEl?.remove();
-    this.statblockStyleEl = null;
+    document.body.style.removeProperty('--codex-statblock-width');
   }
 
   private originalOpenLinkText: ((...args: any[]) => Promise<void>) | null = null;

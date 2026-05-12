@@ -89,7 +89,7 @@ export class CodexSettingTab extends PluginSettingTab {
     containerEl.empty();
 
     // ----- Linting Settings -----
-    containerEl.createEl('h2', { text: 'Narrative Linting' });
+    new Setting(containerEl).setName('Narrative linting').setHeading();
 
     new Setting(containerEl)
       .setName('Dead-link warnings')
@@ -141,7 +141,7 @@ export class CodexSettingTab extends PluginSettingTab {
       );
 
     // ----- Codex Cloud -----
-    containerEl.createEl('h2', { text: 'Codex Cloud' });
+    new Setting(containerEl).setName('Codex cloud').setHeading();
 
     new Setting(containerEl)
       .setName('Inference mode')
@@ -252,7 +252,7 @@ export class CodexSettingTab extends PluginSettingTab {
       );
 
     // ----- AI Provider Settings -----
-    containerEl.createEl('h2', { text: 'AI Provider' });
+    new Setting(containerEl).setName('AI provider').setHeading();
 
     new Setting(containerEl)
       .setName('Provider')
@@ -378,7 +378,7 @@ export class CodexSettingTab extends PluginSettingTab {
       );
 
     // ----- AI Context Settings -----
-    containerEl.createEl('h2', { text: 'AI Context' });
+    new Setting(containerEl).setName('AI context').setHeading();
 
     new Setting(containerEl)
       .setName('Recent sessions to include')
@@ -448,7 +448,7 @@ export class CodexSettingTab extends PluginSettingTab {
       );
 
     // ----- AI Generation Settings -----
-    containerEl.createEl('h2', { text: 'AI Generation' });
+    new Setting(containerEl).setName('AI generation').setHeading();
 
     new Setting(containerEl)
       .setName('Rule system')
@@ -544,35 +544,27 @@ export class CodexSettingTab extends PluginSettingTab {
       );
 
     // ----- Entity Types -----
-    containerEl.createEl('h2', { text: 'Entity Types' });
+    new Setting(containerEl).setName('Entity types').setHeading();
 
-    const typesDesc = containerEl.createEl('p', {
+    containerEl.createEl('p', {
       text: 'Entity types that Codex indexes and offers in generation dialogs. Add custom types or remove built-in ones you don\'t use.',
-      cls: 'setting-item-description',
+      cls: 'setting-item-description codex-entity-types-desc',
     });
-    typesDesc.style.marginBottom = '8px';
 
     const typesContainer = containerEl.createDiv({ cls: 'codex-entity-types-list' });
     const renderTypes = () => {
       typesContainer.empty();
       for (const t of this.plugin.settings.entityTypes) {
         const row = typesContainer.createDiv({ cls: 'codex-entity-type-row' });
-        row.style.display = 'flex';
-        row.style.alignItems = 'center';
-        row.style.gap = '8px';
-        row.style.marginBottom = '4px';
 
-        const label = row.createSpan({ text: t });
-        label.style.flex = '1';
+        row.createSpan({ text: t, cls: 'codex-entity-type-label' });
 
         const isDefault = (DEFAULT_ENTITY_TYPES as readonly string[]).includes(t);
         if (isDefault) {
-          const badge = row.createSpan({ text: 'built-in', cls: 'setting-item-description' });
-          badge.style.fontSize = 'var(--font-smallest)';
+          row.createSpan({ text: 'built-in', cls: 'setting-item-description codex-entity-type-badge-builtin' });
         }
 
-        const removeBtn = row.createEl('button', { text: '×' });
-        removeBtn.style.cursor = 'pointer';
+        const removeBtn = row.createEl('button', { text: '×', cls: 'codex-entity-type-remove' });
         removeBtn.addEventListener('click', async () => {
           this.plugin.settings.entityTypes = this.plugin.settings.entityTypes.filter(x => x !== t);
           await this.plugin.saveSettings();
@@ -627,7 +619,7 @@ export class CodexSettingTab extends PluginSettingTab {
       );
 
     // ----- Entity Templates -----
-    containerEl.createEl('h2', { text: 'Entity Templates' });
+    new Setting(containerEl).setName('Entity templates').setHeading();
 
     new Setting(containerEl)
       .setName('Template folder')
@@ -675,7 +667,7 @@ export class CodexSettingTab extends PluginSettingTab {
       );
 
     // ----- Maintenance -----
-    containerEl.createEl('h2', { text: 'Maintenance' });
+    new Setting(containerEl).setName('Maintenance').setHeading();
 
     new Setting(containerEl)
       .setName('Re-index vault')
