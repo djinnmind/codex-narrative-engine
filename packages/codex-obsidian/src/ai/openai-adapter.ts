@@ -108,7 +108,7 @@ export class OpenAIAdapter implements LLMProvider {
 
       const models = response.json?.data ?? response.json?.models ?? [];
       const found = Array.isArray(models)
-        ? models.find((m: Record<string, unknown>) => (m.id ?? m.name) === this.model)
+        ? models.find((m: any) => (m.id ?? m.name) === this.model)
         : null;
 
       return {
@@ -119,10 +119,10 @@ export class OpenAIAdapter implements LLMProvider {
         model: this.model,
         latencyMs,
       };
-    } catch (err: unknown) {
+    } catch (err: any) {
       return {
         success: false,
-        message: err instanceof Error ? err.message : 'Connection failed',
+        message: err?.message ?? 'Connection failed',
         latencyMs: Date.now() - start,
       };
     }

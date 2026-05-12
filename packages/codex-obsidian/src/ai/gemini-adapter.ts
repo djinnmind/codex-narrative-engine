@@ -5,6 +5,7 @@ import type {
   ChatResponse,
   ChatChunk,
   ConnectionTestResult,
+  ChatMessage,
 } from '@codex-ide/core';
 import { withRetry } from './retry';
 
@@ -34,7 +35,7 @@ export class GeminiAdapter implements LLMProvider {
 
   private async doChat(request: ChatRequest): Promise<ChatResponse> {
     const url = `${this.baseUrl}/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`;
-    console.debug(`Codex AI: POST ${this.baseUrl}/v1beta/models/${this.model}:generateContent`);
+    console.log(`Codex AI: POST ${this.baseUrl}/v1beta/models/${this.model}:generateContent`);
 
     const contents = this.buildContents(request);
     if (contents.length === 0) {
@@ -83,10 +84,10 @@ export class GeminiAdapter implements LLMProvider {
           totalTokens: usage.totalTokenCount ?? 0,
         } : undefined,
       };
-    } catch (err: unknown) {
-      if (err instanceof Error && err.message.includes('Gemini API error')) throw err;
+    } catch (err: any) {
+      if (err?.message?.includes('Gemini API error')) throw err;
       console.error('Codex AI: Request failed', err);
-      throw new Error(`Request failed: ${err instanceof Error ? err.message : 'unknown error'}`);
+      throw new Error(`Request failed: ${err?.message ?? 'unknown error'}`);
     }
   }
 
@@ -99,7 +100,7 @@ export class GeminiAdapter implements LLMProvider {
     const start = Date.now();
     try {
       const url = `${this.baseUrl}/v1beta/models/${this.model}?key=${this.apiKey}`;
-      console.debug(`Codex AI: Testing connection to ${this.baseUrl}/v1beta/models/${this.model}`);
+      console.log(`Codex AI: Testing connection to ${this.baseUrl}/v1beta/models/${this.model}`);
       const response = await requestUrl({ url, method: 'GET', throw: false });
       const latencyMs = Date.now() - start;
 
@@ -116,11 +117,11 @@ export class GeminiAdapter implements LLMProvider {
         model: modelName,
         latencyMs,
       };
-    } catch (err: unknown) {
+    } catch (err: any) {
       console.error('Codex AI: Test connection error', err);
       return {
         success: false,
-        message: err instanceof Error ? err.message : 'Connection failed',
+        message: err?.message ?? 'Connection failed',
         latencyMs: Date.now() - start,
       };
     }

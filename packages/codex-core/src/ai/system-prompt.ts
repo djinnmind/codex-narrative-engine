@@ -125,8 +125,7 @@ function buildGenerationRules(opts: SystemPromptOptions): string {
 
 function formatValue(v: unknown): string {
   if (typeof v === 'string') return v;
-  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
   if (Array.isArray(v)) return v.join(', ');
   if (v === null || v === undefined) return '';
-  return JSON.stringify(v);
+  return String(v);
 }

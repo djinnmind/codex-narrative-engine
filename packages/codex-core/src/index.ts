@@ -48,5 +48,6 @@ export type {
 export { PROVIDER_DEFAULTS, PROVIDER_LABELS, PROVIDER_MODELS } from './ai/types';
 export { ContextAssembler } from './ai/context-assembler';
 export type { ContextAssemblerOptions } from './ai/context-assembler';
+export { mergeVaultContextWithCloudHits } from './ai/merge-vault-context';
 export { buildSystemPrompt } from './ai/system-prompt';
 export type { SystemPromptOptions } from './ai/system-prompt';

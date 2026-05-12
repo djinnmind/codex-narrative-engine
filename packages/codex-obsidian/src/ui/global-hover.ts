@@ -69,11 +69,13 @@ export function installGlobalHover(plugin: CodexPlugin): () => void {
     activeTooltip = tooltipEl;
 
     const rect = link.getBoundingClientRect();
-    tooltipEl.style.setProperty('left', `${rect.left}px`);
-    tooltipEl.style.setProperty('top', `${rect.top - tooltipEl.offsetHeight - 6}px`);
+    tooltipEl.style.position = 'fixed';
+    tooltipEl.style.zIndex = '1000';
+    tooltipEl.style.left = `${rect.left}px`;
+    tooltipEl.style.top = `${rect.top - tooltipEl.offsetHeight - 6}px`;
 
     if (tooltipEl.getBoundingClientRect().top < 0) {
-      tooltipEl.style.setProperty('top', `${rect.bottom + 6}px`);
+      tooltipEl.style.top = `${rect.bottom + 6}px`;
     }
   }
 

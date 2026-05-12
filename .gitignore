@@ -37,3 +37,6 @@ coverage/
 # Debug logs
 npm-debug.log*
 packages/codex-core/test/fixtures/sample-vault/.obsidian/plugins/
+
+# Cloud API local runtime data (SQLite DB, uploads, etc.)
+apps/cloud-api/data/

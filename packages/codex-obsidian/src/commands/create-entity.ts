@@ -1,4 +1,4 @@
-import { Modal, Setting, TFile } from 'obsidian';
+import { App, Modal, Setting, TFile, TFolder } from 'obsidian';
 import type CodexPlugin from '../main';
 
 const ENTITY_TEMPLATES: Record<string, (name: string) => string> = {
@@ -57,7 +57,7 @@ class CreateEntityModal extends Modal {
 
   onOpen(): void {
     const { contentEl } = this;
-    contentEl.createEl('h3', { text: 'Create entity' });
+    contentEl.createEl('h3', { text: 'Create Entity' });
 
     new Setting(contentEl)
       .setName('Entity name')
@@ -110,17 +110,17 @@ export function startCreateEntity(plugin: CodexPlugin, suggestedName: string): v
 export function registerCreateEntityCommand(plugin: CodexPlugin): void {
   plugin.addCommand({
     id: 'create-entity',
-    name: 'Create entity',
+    name: 'Create Entity',
     callback: () => {
-      new CreateEntityModal(plugin, '', (type, name) => {
-        void createEntityFile(plugin, type, name);
+      new CreateEntityModal(plugin, '', async (type, name) => {
+        await createEntityFile(plugin, type, name);
       }).open();
     },
   });
 
   plugin.addCommand({
     id: 'create-entity-from-link',
-    name: 'Create entity from dead link',
+    name: 'Create Entity from Dead Link',
     checkCallback: (checking: boolean) => {
       const file = plugin.app.workspace.getActiveFile();
       if (!file) return false;
@@ -134,8 +134,8 @@ export function registerCreateEntityCommand(plugin: CodexPlugin): void {
         if (cleaned) suggestedName = cleaned;
       }
 
-      new CreateEntityModal(plugin, suggestedName, (type, name) => {
-        void createEntityFile(plugin, type, name);
+      new CreateEntityModal(plugin, suggestedName, async (type, name) => {
+        await createEntityFile(plugin, type, name);
       }).open();
 
       return true;

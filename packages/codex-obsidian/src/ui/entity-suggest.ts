@@ -1,4 +1,5 @@
 import {
+  App,
   Editor,
   EditorPosition,
   EditorSuggest,
@@ -9,18 +10,6 @@ import {
 import type CodexPlugin from '../main';
 import type { Entity, EntityType } from '@codex-ide/core';
 
-interface EditorSuggestInstance {
-  onTrigger: ((...args: unknown[]) => unknown) | null;
-  selectSuggestion: ((...args: unknown[]) => void) | null;
-  constructor?: { name?: string };
-}
-
-interface WorkspaceWithSuggest {
-  editorSuggest?: {
-    suggests?: EditorSuggestInstance[];
-  };
-}
-
 const TYPE_ICONS: Record<string, string> = {
   npc: '👤',
   creature: '🐉',
@@ -29,6 +18,7 @@ const TYPE_ICONS: Record<string, string> = {
   item: '🗡️',
   session: '📜',
   quest: '❗',
+  arc: '📖',
   adventure: '🗺️',
   event: '⚡',
   world: '🌍',
@@ -45,11 +35,7 @@ interface SuggestItem {
 
 export class EntitySuggest extends EditorSuggest<SuggestItem> {
   private plugin: CodexPlugin;
-  private savedMethods: {
-    suggest: EditorSuggestInstance;
-    onTrigger: EditorSuggestInstance['onTrigger'];
-    selectSuggestion: EditorSuggestInstance['selectSuggestion'];
-  } | null = null;
+  private savedMethods: { suggest: any; onTrigger: any; selectSuggestion: any } | null = null;
 
   constructor(plugin: CodexPlugin) {
     super(plugin.app);
@@ -64,8 +50,7 @@ export class EntitySuggest extends EditorSuggest<SuggestItem> {
    */
   private disableBuiltInSuggest(): void {
     try {
-      const ws = this.plugin.app.workspace as unknown as WorkspaceWithSuggest;
-      const editorSuggest = ws.editorSuggest;
+      const editorSuggest = (this.plugin.app.workspace as any).editorSuggest;
       if (editorSuggest?.suggests) {
         for (const suggest of editorSuggest.suggests) {
           if (suggest !== this && suggest.constructor?.name !== 'EntitySuggest') {
@@ -77,13 +62,13 @@ export class EntitySuggest extends EditorSuggest<SuggestItem> {
               };
               suggest.onTrigger = () => null;
               suggest.selectSuggestion = () => {};
-              console.debug('Codex: Disabled built-in link suggest, Codex suggest active');
+              console.log('Codex: Disabled built-in link suggest, Codex suggest active');
             }
           }
         }
       }
     } catch {
-      console.debug('Codex: Could not disable built-in suggest, running alongside it');
+      console.log('Codex: Could not disable built-in suggest, running alongside it');
     }
   }
 
@@ -94,7 +79,7 @@ export class EntitySuggest extends EditorSuggest<SuggestItem> {
         if (onTrigger) suggest.onTrigger = onTrigger;
         if (selectSuggestion) suggest.selectSuggestion = selectSuggestion;
         this.savedMethods = null;
-        console.debug('Codex: Restored built-in link suggest');
+        console.log('Codex: Restored built-in link suggest');
       }
     } catch {
       // Best effort

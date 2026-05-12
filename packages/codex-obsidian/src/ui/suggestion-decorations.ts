@@ -10,11 +10,6 @@ import { computeLineDiff } from '@codex-ide/core';
 import type { DiffLine } from '@codex-ide/core';
 import type CodexPlugin from '../main';
 
-interface ObsidianEditorInternal {
-  editor?: { cm?: EditorView };
-  file?: TFile;
-}
-
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -233,7 +228,7 @@ export function createSuggestionDecorations(_plugin: CodexPlugin) {
 function findEditorViewsWithSuggestions(plugin: CodexPlugin): EditorView[] {
   const views: EditorView[] = [];
   plugin.app.workspace.getLeavesOfType('markdown').forEach((leaf) => {
-    const cm = (leaf.view as unknown as ObsidianEditorInternal)?.editor?.cm;
+    const cm = (leaf.view as any)?.editor?.cm as EditorView | undefined;
     if (cm && cm.state.field(suggestionField, false)) {
       views.push(cm);
     }
@@ -313,10 +308,10 @@ export function acceptAllSuggestions(plugin: CodexPlugin): void {
   for (const view of findEditorViewsWithSuggestions(plugin)) {
     view.dispatch({ effects: [clearSuggestions.of(null)] });
   }
-  new Notice('Codex: suggestions accepted.');
+  new Notice('Codex: Suggestions accepted.');
 }
 
-export function rejectAllSuggestions(plugin: CodexPlugin): void {
+export async function rejectAllSuggestions(plugin: CodexPlugin): Promise<void> {
   for (const view of findEditorViewsWithSuggestions(plugin)) {
     const state = view.state.field(suggestionField, false);
     if (!state) continue;
@@ -327,7 +322,7 @@ export function rejectAllSuggestions(plugin: CodexPlugin): void {
       selection: EditorSelection.cursor(0),
     });
   }
-  new Notice('Codex: suggestions rejected — original content restored.');
+  new Notice('Codex: Suggestions rejected — original content restored.');
 }
 
 // ---------------------------------------------------------------------------
@@ -343,7 +338,7 @@ export async function applySuggestedEdit(
   const oldContent = await plugin.app.vault.read(file);
 
   if (oldContent === newContent) {
-    new Notice('Codex: no changes to suggest.');
+    new Notice('Codex: No changes to suggest.');
     return;
   }
 
@@ -364,10 +359,9 @@ export async function applySuggestedEdit(
 
   let applied = false;
   plugin.app.workspace.getLeavesOfType('markdown').forEach((leaf) => {
-    const internal = leaf.view as unknown as ObsidianEditorInternal;
-    const leafFile = internal?.file;
+    const leafFile = (leaf.view as any)?.file as TFile | undefined;
     if (leafFile?.path !== file.path) return;
-    const cm = internal?.editor?.cm;
+    const cm = (leaf.view as any)?.editor?.cm as EditorView | undefined;
     if (!cm) return;
 
     cm.dispatch({
