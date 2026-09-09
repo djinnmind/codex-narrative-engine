@@ -8,8 +8,7 @@
     "dev": "node esbuild.config.mjs"
   },
   "dependencies": {
-    "@codex-ide/core": "*",
-    "@codex-ide/cloud-contract": "*"
+    "@codex-ide/core": "*"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

@@ -3,12 +3,10 @@
   "private": true,
   "workspaces": [
     "packages/codex-core",
-    "packages/codex-obsidian",
-    "packages/cloud-contract"
+    "packages/codex-obsidian"
   ],
   "scripts": {
-    "build": "npm run build:contract && npm run build:core && npm run build:obsidian",
-    "build:contract": "cd packages/cloud-contract && npm run build",
+    "build": "npm run build:core && npm run build:obsidian",
     "build:core": "cd packages/codex-core && npm run build",
     "build:obsidian": "cd packages/codex-obsidian && npm run build",
     "test": "cd packages/codex-core && npm run test",

@@ -2,10 +2,6 @@ import { App, Notice, PluginSettingTab, Setting } from 'obsidian';
 import type { ProviderType, ProviderConfig, StatblockFormat } from '@codex-ide/core';
 import { DEFAULT_ENTITY_TYPES, PROVIDER_DEFAULTS, PROVIDER_LABELS, PROVIDER_MODELS } from '@codex-ide/core';
 import type CodexPlugin from './main';
-import { CodexCloudClient } from './cloud/cloud-client';
-import { cloudApiBaseUrl } from './cloud/cloud-utils';
-
-export type AiInferenceMode = 'byok' | 'codex-cloud';
 
 export interface CodexSettings {
   enableDeadLinkWarnings: boolean;
@@ -13,15 +9,6 @@ export interface CodexSettings {
   showGutterIcons: boolean;
   ignoredFolders: string;
 
-  /** BYOK vs managed Codex Cloud inference */
-  aiInferenceMode: AiInferenceMode;
-  cloudApiKey: string;
-  /** Codex Cloud API base URL (empty = default local dev URL) */
-  cloudBaseUrl: string;
-  cloudSyncEnabled: boolean;
-  cloudSyncDebounceMs: number;
-  /** Merge Cloud RAG hits into Lore Chat context when using Codex Cloud */
-  cloudMergeRagInChat: boolean;
 
   aiProvider: ProviderType;
   aiApiKey: string;
@@ -49,12 +36,6 @@ export const DEFAULT_SETTINGS: CodexSettings = {
   showGutterIcons: true,
   ignoredFolders: '.obsidian, .trash',
 
-  aiInferenceMode: 'byok',
-  cloudApiKey: '',
-  cloudBaseUrl: '',
-  cloudSyncEnabled: true,
-  cloudSyncDebounceMs: 8000,
-  cloudMergeRagInChat: true,
 
   aiProvider: 'gemini',
   aiApiKey: '',
@@ -140,117 +121,6 @@ export class CodexSettingTab extends PluginSettingTab {
           }),
       );
 
-    // ----- Codex Cloud -----
-    new Setting(containerEl).setName('Codex cloud').setHeading();
-
-    new Setting(containerEl)
-      .setName('Inference mode')
-      .setDesc('Use your own API keys (BYOK) or Codex Cloud managed inference (requires active Cloud subscription / trial).')
-      .addDropdown(dropdown =>
-        dropdown
-          .addOption('byok', 'Bring your own key (BYOK)')
-          .addOption('codex-cloud', 'Codex Cloud')
-          .setValue(this.plugin.settings.aiInferenceMode)
-          .onChange(async (value) => {
-            this.plugin.settings.aiInferenceMode = value as AiInferenceMode;
-            await this.plugin.saveSettings();
-            this.display();
-          }),
-      );
-
-    new Setting(containerEl)
-      .setName('Codex Cloud API key')
-      .setDesc('From Stripe checkout redeem or dev issue-key. Stored only in this vault.')
-      .addText(text =>
-        text
-          .setPlaceholder('cxk_…')
-          .setValue(this.plugin.settings.cloudApiKey)
-          .onChange(async (value) => {
-            this.plugin.settings.cloudApiKey = value;
-            await this.plugin.saveSettings();
-          }),
-      )
-      .then(setting => {
-        const input = setting.controlEl.querySelector('input');
-        if (input) input.type = 'password';
-      });
-
-    new Setting(containerEl)
-      .setName('Codex Cloud API base URL')
-      .setDesc('Leave empty for default (http://127.0.0.1:8790). Set to your production Codex Cloud URL.')
-      .addText(text =>
-        text
-          .setPlaceholder('https://cloud.example.com')
-          .setValue(this.plugin.settings.cloudBaseUrl)
-          .onChange(async (value) => {
-            this.plugin.settings.cloudBaseUrl = value;
-            await this.plugin.saveSettings();
-          }),
-      );
-
-    new Setting(containerEl)
-      .setName('Background entity sync')
-      .setDesc('Upload entity summaries to Codex Cloud for semantic search / RAG (no full note bodies).')
-      .addToggle(toggle =>
-        toggle
-          .setValue(this.plugin.settings.cloudSyncEnabled)
-          .onChange(async (value) => {
-            this.plugin.settings.cloudSyncEnabled = value;
-            await this.plugin.saveSettings();
-          }),
-      );
-
-    new Setting(containerEl)
-      .setName('Sync debounce (ms)')
-      .setDesc('Wait after vault changes before syncing to Cloud.')
-      .addText(text =>
-        text
-          .setValue(String(this.plugin.settings.cloudSyncDebounceMs))
-          .onChange(async (value) => {
-            const n = Number.parseInt(value.replace(/\D/g, ''), 10);
-            this.plugin.settings.cloudSyncDebounceMs = Number.isFinite(n) ? Math.max(2000, n) : 8000;
-            await this.plugin.saveSettings();
-          }),
-      );
-
-    new Setting(containerEl)
-      .setName('Merge Cloud RAG in Lore Chat')
-      .setDesc('When using Codex Cloud, prepend semantic search hits to chat context before the local entity graph.')
-      .addToggle(toggle =>
-        toggle
-          .setValue(this.plugin.settings.cloudMergeRagInChat)
-          .onChange(async (value) => {
-            this.plugin.settings.cloudMergeRagInChat = value;
-            await this.plugin.saveSettings();
-          }),
-      );
-
-    new Setting(containerEl)
-      .setName('Validate Cloud connection')
-      .setDesc('Calls GET /v1/me with your API key.')
-      .addButton(button =>
-        button
-          .setButtonText('Validate')
-          .setCta()
-          .onClick(async () => {
-            button.setButtonText('…');
-            button.setDisabled(true);
-            try {
-              const client = new CodexCloudClient(
-                cloudApiBaseUrl(this.plugin.settings.cloudBaseUrl),
-                this.plugin.settings.cloudApiKey,
-              );
-              const me = await client.me();
-              new Notice(`Codex Cloud OK — plan: ${me.plan}`);
-            } catch (e: any) {
-              new Notice(`Codex Cloud: ${e?.message ?? e}`);
-            } finally {
-              button.setButtonText('Validate');
-              button.setDisabled(false);
-            }
-          }),
-      );
-
     // ----- AI Provider Settings -----
     new Setting(containerEl).setName('AI provider').setHeading();
 
@@ -275,7 +145,6 @@ export class CodexSettingTab extends PluginSettingTab {
       });
 
     const needsApiKey =
-      this.plugin.settings.aiInferenceMode === 'byok' &&
       ['gemini', 'openai', 'anthropic', 'openai-compatible'].includes(this.plugin.settings.aiProvider);
 
     if (needsApiKey) {
@@ -355,11 +224,7 @@ export class CodexSettingTab extends PluginSettingTab {
             try {
               const provider = this.plugin.getProvider();
               if (!provider) {
-                new Notice(
-                  this.plugin.settings.aiInferenceMode === 'codex-cloud'
-                    ? 'Configure your Codex Cloud API key first.'
-                    : 'Configure an API key first.',
-                );
+                new Notice('Configure an API key first.');
                 return;
               }
               const result = await provider.testConnection();
