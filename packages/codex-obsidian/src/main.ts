@@ -5,6 +5,7 @@ import { VaultAdapter } from './adapters/vault-adapter';
 import { WarningsView, WARNINGS_VIEW_TYPE } from './ui/warnings-view';
 import { LoreChatView, CHAT_VIEW_TYPE } from './ui/chat-view';
 import { createDiagnosticViewPlugin, createGutterViewPlugin, refreshDiagnostics } from './ui/diagnostic-decorations';
+import { createHoverTooltip } from './ui/hover-tooltip';
 import { createLinkStylingPlugin } from './ui/link-styling';
 import { createDeadLinkPostProcessor } from './ui/reading-mode-decorations';
 import { installGlobalHover } from './ui/global-hover';
@@ -23,16 +24,7 @@ import {
 } from './commands/ai-commands';
 import { CodexSettingTab, CodexSettings, DEFAULT_SETTINGS, getProviderConfig } from './settings';
 import { createProvider } from './ai/provider-factory';
-import type { EditorView } from '@codemirror/view';
-
-interface ObsidianEditorInternal {
-  editor?: { cm?: EditorView };
-  file?: TFile;
-}
-
-interface MenuItemWithSubmenu {
-  setSubmenu(): Menu;
-}
+import { getActiveDocument } from './util/dom';
 
 export default class CodexPlugin extends Plugin {
   registry!: EntityRegistry;
@@ -46,7 +38,7 @@ export default class CodexPlugin extends Plugin {
   private teardownGlobalHover: (() => void) | null = null;
 
   async onload(): Promise<void> {
-    console.debug('Codex plugin v0.2.0 loading');
+    console.log('Codex plugin v0.4.1 loading');
     await this.loadSettings();
 
     this.registry = new EntityRegistry();
@@ -86,24 +78,24 @@ export default class CodexPlugin extends Plugin {
     this.entitySuggest = new EntitySuggest(this);
     this.registerEditorSuggest(this.entitySuggest);
 
-    this.addRibbonIcon('scroll-text', 'Codex: narrative warnings', () => {
-      void this.activateWarningsPanel();
+    this.addRibbonIcon('scroll-text', 'Codex: Narrative Warnings', () => {
+      this.activateWarningsPanel();
     });
 
-    this.addRibbonIcon('message-square', 'Codex: lore chat', () => {
-      void this.activateChatPanel();
+    this.addRibbonIcon('message-square', 'Codex: Lore Chat', () => {
+      this.activateChatPanel();
     });
 
     // Commands
     this.addCommand({
       id: 'open-warnings-panel',
-      name: 'Open narrative warnings',
-      callback: () => { void this.activateWarningsPanel(); },
+      name: 'Open Narrative Warnings',
+      callback: () => this.activateWarningsPanel(),
     });
 
     this.addCommand({
       id: 'reindex-vault',
-      name: 'Re-index vault',
+      name: 'Re-index Vault',
       callback: async () => {
         this.registry.clear();
         await this.vaultAdapter.fullIndex();
@@ -115,31 +107,33 @@ export default class CodexPlugin extends Plugin {
 
     this.addCommand({
       id: 'open-lore-chat',
-      name: 'Open lore chat',
-      callback: () => { void this.activateChatPanel(); },
+      name: 'Open Lore Chat',
+      callback: () => this.activateChatPanel(),
     });
 
     registerRenameCommand(this);
     registerCreateEntityCommand(this);
     registerAICommands(this);
 
+
     this.addCommand({
       id: 'accept-suggestions',
-      name: 'Accept AI suggestions',
+      name: 'Accept AI Suggestions',
       callback: () => acceptAllSuggestions(this),
     });
 
     this.addCommand({
       id: 'reject-suggestions',
-      name: 'Reject AI suggestions',
+      name: 'Reject AI Suggestions',
       callback: () => rejectAllSuggestions(this),
     });
+
 
     // Index vault when ready; also ensure template files exist
     this.app.workspace.onLayoutReady(async () => {
       await this.ensureTemplates();
       await this.vaultAdapter.fullIndex();
-      console.debug(`Codex: Indexed ${this.registry.size} entities`);
+      console.log(`Codex: Indexed ${this.registry.size} entities`);
       this.refreshWarningsView();
       this.refreshEditorDiagnostics();
     });
@@ -155,6 +149,7 @@ export default class CodexPlugin extends Plugin {
 
     this.addSettingTab(new CodexSettingTab(this.app, this));
 
+
     // Editor context menu — "Codex AI" submenu + suggestion review items
     this.registerEvent(
       this.app.workspace.on('editor-menu', (menu, _editor, view) => {
@@ -168,20 +163,20 @@ export default class CodexPlugin extends Plugin {
 
           if (hunkId != null) {
             menu.addItem((item) =>
-              item.setTitle('Accept this change').setIcon('check')
+              item.setTitle('Accept This Change').setIcon('check')
                 .onClick(() => dismissSingleHunk(this, hunkId)),
             );
             menu.addItem((item) =>
-              item.setTitle('Reject this change').setIcon('x')
+              item.setTitle('Reject This Change').setIcon('x')
                 .onClick(() => rejectSingleHunk(this, hunkId)),
             );
           }
           menu.addItem((item) =>
-            item.setTitle('Accept all changes').setIcon('check-check')
+            item.setTitle('Accept All Changes').setIcon('check-check')
               .onClick(() => acceptAllSuggestions(this)),
           );
           menu.addItem((item) =>
-            item.setTitle('Reject all changes').setIcon('x')
+            item.setTitle('Reject All Changes').setIcon('x')
               .onClick(() => rejectAllSuggestions(this)),
           );
           menu.addSeparator();
@@ -189,10 +184,10 @@ export default class CodexPlugin extends Plugin {
 
         menu.addItem((item) => {
           item.setTitle('Codex AI').setIcon('wand-2');
-          const submenu = (item as unknown as MenuItemWithSubmenu).setSubmenu();
+          const submenu = (item as any).setSubmenu() as Menu;
 
           const editor = _editor;
-          const cm = (view as unknown as ObsidianEditorInternal)?.editor?.cm;
+          const cm = (view as any)?.editor?.cm as import('@codemirror/view').EditorView | undefined;
           const selection = editor.getSelection();
           const hasSelection = selection && selection.trim().length > 0;
 
@@ -200,8 +195,8 @@ export default class CodexPlugin extends Plugin {
             const from = cm.state.selection.main.from;
             const to = cm.state.selection.main.to;
             submenu.addItem((sub) =>
-              sub.setTitle('Revise selection…').setIcon('pencil')
-                .onClick(() => { void reviseSelection(this, file, selection, from, to); }),
+              sub.setTitle('Revise Selection…').setIcon('pencil')
+                .onClick(() => reviseSelection(this, file, selection, from, to)),
             );
           }
 
@@ -228,7 +223,7 @@ export default class CodexPlugin extends Plugin {
 
               submenu.addItem((sub) =>
                 sub.setTitle(`Generate "${entityName}"…`).setIcon('plus-circle')
-                  .onClick(() => { void generateEntityFromContext(this, entityName, surrounding); }),
+                  .onClick(() => generateEntityFromContext(this, entityName, surrounding)),
               );
             }
           }
@@ -238,17 +233,17 @@ export default class CodexPlugin extends Plugin {
           }
 
           submenu.addItem((sub) =>
-            sub.setTitle('Enhance note').setIcon('sparkles')
-              .onClick(() => { void enhanceNote(this, file); }),
+            sub.setTitle('Enhance Note').setIcon('sparkles')
+              .onClick(() => enhanceNote(this, file)),
           );
           submenu.addItem((sub) =>
-            sub.setTitle('Describe scene (read-aloud)').setIcon('eye')
-              .onClick(() => { void describeScene(this, file); }),
+            sub.setTitle('Describe Scene (Read-Aloud)').setIcon('eye')
+              .onClick(() => describeScene(this, file)),
           );
           submenu.addSeparator();
           submenu.addItem((sub) =>
-            sub.setTitle('Extract entities').setIcon('scan-search')
-              .onClick(() => { void extractEntities(this, file); }),
+            sub.setTitle('Extract Entities').setIcon('scan-search')
+              .onClick(() => extractEntities(this, file)),
           );
         });
 
@@ -256,7 +251,7 @@ export default class CodexPlugin extends Plugin {
         if (entity) {
           menu.addItem((item) =>
             item.setTitle(`Rename "${entity.name}"…`).setIcon('pencil-line')
-              .onClick(() => { void startRename(this, file); }),
+              .onClick(() => startRename(this, file)),
           );
         }
 
@@ -297,14 +292,14 @@ export default class CodexPlugin extends Plugin {
         const entity = this.registry.getByPath(abstractFile.path);
         if (entity) {
           menu.addItem((item) =>
-            item.setTitle(`Codex: rename "${entity.name}"…`).setIcon('pencil-line')
-              .onClick(() => { void startRename(this, abstractFile); }),
+            item.setTitle(`Codex: Rename "${entity.name}"…`).setIcon('pencil-line')
+              .onClick(() => startRename(this, abstractFile)),
           );
         }
 
         menu.addItem((item) =>
-          item.setTitle('Codex: extract entities').setIcon('scan-search')
-            .onClick(() => { void extractEntities(this, abstractFile); }),
+          item.setTitle('Codex: Extract Entities').setIcon('scan-search')
+            .onClick(() => extractEntities(this, abstractFile)),
         );
       }),
     );
@@ -335,42 +330,46 @@ export default class CodexPlugin extends Plugin {
 
   applyStatblockWidth(): void {
     const width = this.settings.statblockWidth ?? 600;
-    document.body.style.setProperty('--codex-statblock-width', `${width}px`);
+    getActiveDocument().body.style.setProperty('--codex-statblock-width', `${width}px`);
   }
 
   private removeStatblockStyle(): void {
-    document.body.style.removeProperty('--codex-statblock-width');
+    getActiveDocument().body.style.removeProperty('--codex-statblock-width');
   }
 
-  private originalOpenLinkText: ((linktext: string, sourcePath: string, newLeaf?: boolean | string, openViewState?: Record<string, unknown>) => Promise<void>) | null = null;
+  private originalOpenLinkText: ((...args: any[]) => Promise<void>) | null = null;
 
   private installLinkNavigationOverride(): void {
     const workspace = this.app.workspace;
     this.originalOpenLinkText = workspace.openLinkText.bind(workspace);
 
-    workspace.openLinkText = async (
+    const plugin = this;
+    workspace.openLinkText = async function (
       linktext: string,
       sourcePath: string,
-      newLeaf?: boolean | string,
-      openViewState?: Record<string, unknown>,
-    ) => {
-      const nativeResolved = this.app.metadataCache.getFirstLinkpathDest(linktext, sourcePath);
+      newLeaf?: any,
+      openViewState?: any,
+    ) {
+      // First check if Obsidian can resolve it natively
+      const nativeResolved = plugin.app.metadataCache.getFirstLinkpathDest(linktext, sourcePath);
       if (nativeResolved) {
-        return this.originalOpenLinkText!(linktext, sourcePath, newLeaf, openViewState);
+        return plugin.originalOpenLinkText!(linktext, sourcePath, newLeaf, openViewState);
       }
 
-      const resolver = this.diagnosticEngine.getResolver();
+      // Try Codex resolver (handles aliases, name field, plurals)
+      const resolver = plugin.diagnosticEngine.getResolver();
       const resolved = resolver.resolve(linktext);
       if (resolved.length > 0) {
-        const targetFile = this.app.vault.getAbstractFileByPath(resolved[0].filePath);
+        const targetFile = plugin.app.vault.getAbstractFileByPath(resolved[0].filePath);
         if (targetFile instanceof TFile) {
-          const leaf = this.app.workspace.getLeaf(newLeaf ?? false);
+          const leaf = plugin.app.workspace.getLeaf(newLeaf ?? false);
           await leaf.openFile(targetFile, openViewState);
           return;
         }
       }
 
-      return this.originalOpenLinkText!(linktext, sourcePath, newLeaf, openViewState);
+      // Fall through to Obsidian's default (create new file prompt)
+      return plugin.originalOpenLinkText!(linktext, sourcePath, newLeaf, openViewState);
     };
   }
 
@@ -430,6 +429,7 @@ export default class CodexPlugin extends Plugin {
   getProvider(): LLMProvider | null {
     if (this.provider) return this.provider;
 
+
     const config = getProviderConfig(this.settings);
     const needsKey = ['gemini', 'openai', 'anthropic'].includes(config.type);
     if (needsKey && !config.apiKey) return null;
@@ -445,28 +445,28 @@ export default class CodexPlugin extends Plugin {
   async activateChatPanel(): Promise<void> {
     const existing = this.app.workspace.getLeavesOfType(CHAT_VIEW_TYPE);
     if (existing.length > 0) {
-      await this.app.workspace.revealLeaf(existing[0]);
+      this.app.workspace.revealLeaf(existing[0]);
       return;
     }
 
     const leaf = this.app.workspace.getRightLeaf(false);
     if (leaf) {
       await leaf.setViewState({ type: CHAT_VIEW_TYPE, active: true });
-      await this.app.workspace.revealLeaf(leaf);
+      this.app.workspace.revealLeaf(leaf);
     }
   }
 
   async activateWarningsPanel(): Promise<void> {
     const existing = this.app.workspace.getLeavesOfType(WARNINGS_VIEW_TYPE);
     if (existing.length > 0) {
-      await this.app.workspace.revealLeaf(existing[0]);
+      this.app.workspace.revealLeaf(existing[0]);
       return;
     }
 
     const leaf = this.app.workspace.getRightLeaf(false);
     if (leaf) {
       await leaf.setViewState({ type: WARNINGS_VIEW_TYPE, active: true });
-      await this.app.workspace.revealLeaf(leaf);
+      this.app.workspace.revealLeaf(leaf);
     }
   }
 
@@ -481,7 +481,7 @@ export default class CodexPlugin extends Plugin {
 
   refreshEditorDiagnostics(): void {
     this.app.workspace.getLeavesOfType('markdown').forEach((leaf) => {
-      const cm = (leaf.view as unknown as ObsidianEditorInternal)?.editor?.cm;
+      const cm = (leaf.view as any)?.editor?.cm;
       if (cm?.dispatch) {
         cm.dispatch({ effects: [refreshDiagnostics.of(null)] });
       }

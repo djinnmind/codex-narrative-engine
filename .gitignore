@@ -16,6 +16,7 @@ data.json
 # Environment & secrets
 .env
 .env.*
+!.env.example
 
 # OS files
 .DS_Store
@@ -37,3 +38,6 @@ coverage/
 # Debug logs
 npm-debug.log*
 packages/codex-core/test/fixtures/sample-vault/.obsidian/plugins/
+
+# Cloud API local runtime data (SQLite DB, uploads, etc.)
+apps/cloud-api/data/

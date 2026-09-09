@@ -9,11 +9,13 @@ export const ENTITY_FOLDER_MAP: Record<string, string> = {
   faction: 'factions',
   item: 'items',
   quest: 'quests',
-  adventure: 'adventures',
   arc: 'arcs',
+  adventure: 'adventures',
   session: 'sessions',
   event: 'events',
   world: 'world',
+  rules: 'rules',
+  handout: 'handouts',
 };
 
 /**
@@ -98,4 +100,77 @@ export function hasFrontmatter(content: string): boolean {
   if (!trimmed.startsWith('---')) return false;
   const endIdx = trimmed.indexOf('---', 3);
   return endIdx > 3;
+}
+
+export interface ParsedEntity {
+  name: string;
+  type: string;
+  content: string;
+}
+
+/**
+ * Splits a multi-entity AI response into individual notes with proper
+ * frontmatter.  Handles headings like `## Name (type)`, `**Name (type)**`,
+ * or `### Name (type)` followed by key-value metadata lines.
+ */
+export function parseEntitySections(response: string): ParsedEntity[] {
+  const headingRe =
+    /(?:^|\n)(?:#{1,4}\s+|\*\*)([\w][\w\s''',.:&-]+?)\s*\((\w+)\)\s*\*{0,2}\s*(?:\n|$)/g;
+
+  const hits: { index: number; fullLen: number; name: string; type: string }[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = headingRe.exec(response)) !== null) {
+    const typeLower = m[2].trim().toLowerCase();
+    if (ENTITY_FOLDER_MAP[typeLower]) {
+      hits.push({ index: m.index, fullLen: m[0].length, name: m[1].trim(), type: typeLower });
+    }
+  }
+  if (hits.length === 0) return [];
+
+  const entities: ParsedEntity[] = [];
+  const metaKeys = new Set([
+    'type', 'status', 'tags', 'session', 'summary', 'description',
+    'location', 'alignment', 'level', 'race', 'class', 'hp', 'ac',
+  ]);
+
+  for (let i = 0; i < hits.length; i++) {
+    const bodyStart = hits[i].index + hits[i].fullLen;
+    const bodyEnd = i + 1 < hits.length ? hits[i + 1].index : response.length;
+    const sectionBody = response.slice(bodyStart, bodyEnd).trim();
+
+    const fields: Record<string, string> = {};
+    const bodyLines: string[] = [];
+
+    for (const line of sectionBody.split('\n')) {
+      const kvMatch = line.match(/^(\w[\w\s]*):\s+(.+)$/);
+      if (kvMatch && metaKeys.has(kvMatch[1].trim().toLowerCase())) {
+        fields[kvMatch[1].trim().toLowerCase()] = kvMatch[2].trim();
+      } else {
+        bodyLines.push(line);
+      }
+    }
+
+    const fm: string[] = ['---'];
+    fm.push(`name: "${hits[i].name}"`);
+    fm.push(`type: ${fields.type ?? hits[i].type}`);
+    delete fields.type;
+    if (fields.status) { fm.push(`status: ${fields.status}`); delete fields.status; }
+    if (fields.tags) {
+      const tagList = fields.tags.split(',').map(t => t.trim()).filter(Boolean);
+      fm.push(`tags: [${tagList.join(', ')}]`);
+      delete fields.tags;
+    }
+    if (fields.session) { fm.push(`session: ${fields.session}`); delete fields.session; }
+    for (const [k, v] of Object.entries(fields)) {
+      fm.push(`${k}: ${v}`);
+    }
+    fm.push('---');
+
+    const body = bodyLines.join('\n').trim();
+    const finalContent = body ? fm.join('\n') + '\n\n' + body + '\n' : fm.join('\n') + '\n';
+
+    entities.push({ name: hits[i].name, type: hits[i].type, content: finalContent });
+  }
+
+  return entities;
 }

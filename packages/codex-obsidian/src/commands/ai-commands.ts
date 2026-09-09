@@ -2,6 +2,7 @@ import { Notice, TFile, Modal, Setting } from 'obsidian';
 import { buildSystemPrompt } from '@codex-ide/core';
 import type { EntityType } from '@codex-ide/core';
 import type CodexPlugin from '../main';
+import { getActiveDocument, getActiveWindow } from '../util/dom';
 import { applySuggestedEdit } from '../ui/suggestion-decorations';
 import { extractMarkdown, extractNameFromContent, ENTITY_FOLDER_MAP } from '../util/ai-helpers';
 
@@ -489,7 +490,7 @@ class ReviseSelectionModal extends Modal {
           .onChange(value => { this.prompt = value; });
         text.inputEl.rows = 3;
         text.inputEl.addClass('codex-modal-textarea');
-        setTimeout(() => text.inputEl.focus(), 50);
+        getActiveWindow().setTimeout(() => text.inputEl.focus(), 50);
       });
 
     new Setting(contentEl)
@@ -1663,7 +1664,9 @@ tags: [arc-review]
 function requireProvider(plugin: CodexPlugin) {
   const provider = plugin.getProvider();
   if (!provider) {
-    new Notice('Codex: configure an AI provider in settings first.');
+    new Notice(
+      'Codex: configure an AI provider in settings first.',
+    );
     return null;
   }
   return provider;
@@ -1674,23 +1677,23 @@ function requireProvider(plugin: CodexPlugin) {
  * Call the returned function to dismiss it.
  */
 function showSpinner(message: string): () => void {
-  const overlay = document.createElement('div');
+  const overlay = getActiveDocument().createElement('div');
   overlay.className = 'codex-spinner-overlay';
 
-  const card = document.createElement('div');
+  const card = getActiveDocument().createElement('div');
   card.className = 'codex-spinner-card';
 
-  const spinner = document.createElement('div');
+  const spinner = getActiveDocument().createElement('div');
   spinner.className = 'codex-spinner';
   card.appendChild(spinner);
 
-  const text = document.createElement('div');
+  const text = getActiveDocument().createElement('div');
   text.className = 'codex-spinner-text';
   text.textContent = message;
   card.appendChild(text);
 
   overlay.appendChild(card);
-  document.body.appendChild(overlay);
+  getActiveDocument().body.appendChild(overlay);
 
   return () => overlay.remove();
 }

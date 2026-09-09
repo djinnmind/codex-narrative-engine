@@ -1,3 +1,5 @@
+import { getActiveWindow } from '../util/dom';
+
 const RETRYABLE_STATUS = new Set([429, 503, 502, 500]);
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1500;
@@ -41,5 +43,5 @@ function isRetryableError(err: unknown): boolean {
 }
 
 function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise(resolve => getActiveWindow().setTimeout(resolve, ms));
 }

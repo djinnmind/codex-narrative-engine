@@ -9,6 +9,7 @@ export interface CodexSettings {
   showGutterIcons: boolean;
   ignoredFolders: string;
 
+
   aiProvider: ProviderType;
   aiApiKey: string;
   aiModel: string;
@@ -34,6 +35,7 @@ export const DEFAULT_SETTINGS: CodexSettings = {
   enableStateConflictWarnings: true,
   showGutterIcons: true,
   ignoredFolders: '.trash',
+
 
   aiProvider: 'gemini',
   aiApiKey: '',
@@ -84,7 +86,7 @@ export class CodexSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('State conflict warnings')
-      .setDesc('Flag contradictions like dead characters listed as present in sessions.')
+      .setDesc('Flag contradictions like dead NPCs listed as present in sessions.')
       .addToggle(toggle =>
         toggle
           .setValue(this.plugin.settings.enableStateConflictWarnings)
@@ -108,10 +110,10 @@ export class CodexSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('Ignored folders')
-      .setDesc('Comma-separated list of folders to exclude from indexing.')
+      .setDesc('Comma-separated list of folders to exclude from indexing. The vault config folder is always ignored automatically.')
       .addText(text =>
         text
-          .setPlaceholder('.trash')
+          .setPlaceholder(`${this.app.vault.configDir}, .trash`)
           .setValue(this.plugin.settings.ignoredFolders)
           .onChange(async (value) => {
             this.plugin.settings.ignoredFolders = value;
@@ -124,7 +126,7 @@ export class CodexSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('Provider')
-      .setDesc('Choose which AI provider to use for AI-powered features.')
+      .setDesc('Select the LLM provider for AI-powered features.')
       .addDropdown(dropdown => {
         for (const [key, label] of Object.entries(PROVIDER_LABELS)) {
           dropdown.addOption(key, label);
@@ -142,8 +144,8 @@ export class CodexSettingTab extends PluginSettingTab {
         });
       });
 
-    const needsApiKey = ['gemini', 'openai', 'anthropic', 'openai-compatible']
-      .includes(this.plugin.settings.aiProvider);
+    const needsApiKey =
+      ['gemini', 'openai', 'anthropic', 'openai-compatible'].includes(this.plugin.settings.aiProvider);
 
     if (needsApiKey) {
       new Setting(containerEl)
@@ -216,29 +218,27 @@ export class CodexSettingTab extends PluginSettingTab {
         button
           .setButtonText('Test')
           .setCta()
-          .onClick(() => {
-            void (async () => {
-              button.setButtonText('Testing...');
-              button.setDisabled(true);
-              try {
-                const provider = this.plugin.getProvider();
-                if (!provider) {
-                  new Notice('Configure an API key first.');
-                  return;
-                }
-                const result = await provider.testConnection();
-                if (result.success) {
-                  new Notice(`✓ ${result.message} (${result.latencyMs}ms)`);
-                } else {
-                  new Notice(`✗ ${result.message}`);
-                }
-              } catch (err: unknown) {
-                new Notice(`✗ ${err instanceof Error ? err.message : 'Unknown error'}`);
-              } finally {
-                button.setButtonText('Test');
-                button.setDisabled(false);
+          .onClick(async () => {
+            button.setButtonText('Testing...');
+            button.setDisabled(true);
+            try {
+              const provider = this.plugin.getProvider();
+              if (!provider) {
+                new Notice('Configure an API key first.');
+                return;
               }
-            })();
+              const result = await provider.testConnection();
+              if (result.success) {
+                new Notice(`✓ ${result.message} (${result.latencyMs}ms)`);
+              } else {
+                new Notice(`✗ ${result.message}`);
+              }
+            } catch (err: any) {
+              new Notice(`✗ ${err?.message ?? 'Unknown error'}`);
+            } finally {
+              button.setButtonText('Test');
+              button.setDisabled(false);
+            }
           }),
       );
 
@@ -287,10 +287,10 @@ export class CodexSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('Excluded folders')
-      .setDesc('Comma-separated folders to exclude from AI context, such as player-secrets.')
+      .setDesc('Comma-separated folders to exclude from AI context (e.g. player-secrets).')
       .addText(text =>
         text
-          .setPlaceholder('Player-secrets, notes')
+          .setPlaceholder('player-secrets, dm-notes')
           .setValue(this.plugin.settings.aiExcludedFolders)
           .onChange(async (value) => {
             this.plugin.settings.aiExcludedFolders = value;
@@ -317,13 +317,13 @@ export class CodexSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('Rule system')
-      .setDesc('Rule system used when generating content.')
+      .setDesc('The TTRPG rule system for generated content.')
       .addDropdown(dropdown =>
         dropdown
           .addOption('D&D 5e', 'D&D 5e')
           .addOption('D&D 5e (2024)', 'D&D 5e (2024)')
           .addOption('Pathfinder 2e', 'Pathfinder 2e')
-          .addOption('Custom', 'Custom / system-agnostic')
+          .addOption('Custom', 'Custom / System-Agnostic')
           .setValue(this.plugin.settings.aiRuleSystem)
           .onChange(async (value) => {
             this.plugin.settings.aiRuleSystem = value;
@@ -333,10 +333,10 @@ export class CodexSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('Campaign tone')
-      .setDesc('Describe the tone for AI-generated content, such as "dark fantasy" or "lighthearted adventure".')
+      .setDesc('Describe the tone for AI-generated content (e.g. "dark fantasy", "lighthearted adventure").')
       .addText(text =>
         text
-          .setPlaceholder('Dark fantasy, gritty noir, etc.')
+          .setPlaceholder('e.g. dark fantasy, gritty noir')
           .setValue(this.plugin.settings.aiCampaignTone)
           .onChange(async (value) => {
             this.plugin.settings.aiCampaignTone = value;
@@ -367,11 +367,11 @@ export class CodexSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('Stat block format')
-      .setDesc('Format for AI-generated creature stat blocks.')
+      .setDesc('Format for AI-generated creature stat blocks. Use "Fantasy Statblocks" if you have that plugin installed.')
       .addDropdown(dropdown =>
         dropdown
-          .addOption('fantasy-statblocks', 'Fantasy statblocks (plugin)')
-          .addOption('markdown', 'Markdown tables')
+          .addOption('fantasy-statblocks', 'Fantasy Statblocks (plugin)')
+          .addOption('markdown', 'Markdown Tables')
           .setValue(this.plugin.settings.aiStatblockFormat)
           .onChange(async (value) => {
             this.plugin.settings.aiStatblockFormat = value as StatblockFormat;
@@ -381,7 +381,7 @@ export class CodexSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('Stat block width')
-      .setDesc('Width of rendered statblock cards in pixels (default 600, plugin default 400).')
+      .setDesc('Width of rendered Fantasy Statblock cards in pixels (default 600, plugin default 400).')
       .addSlider(slider =>
         slider
           .setLimits(300, 900, 50)
@@ -412,7 +412,7 @@ export class CodexSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName('Entity types').setHeading();
 
     containerEl.createEl('p', {
-      text: 'Types the plugin indexes and offers in generation dialogs.',
+      text: 'Entity types that Codex indexes and offers in generation dialogs. Add custom types or remove built-in ones you don\'t use.',
       cls: 'setting-item-description codex-entity-types-desc',
     });
 
@@ -430,13 +430,11 @@ export class CodexSettingTab extends PluginSettingTab {
         }
 
         const removeBtn = row.createEl('button', { text: '×', cls: 'codex-entity-type-remove' });
-        removeBtn.addEventListener('click', () => {
-          void (async () => {
-            this.plugin.settings.entityTypes = this.plugin.settings.entityTypes.filter(x => x !== t);
-            await this.plugin.saveSettings();
-            this.plugin.syncCustomTypes();
-            renderTypes();
-          })();
+        removeBtn.addEventListener('click', async () => {
+          this.plugin.settings.entityTypes = this.plugin.settings.entityTypes.filter(x => x !== t);
+          await this.plugin.saveSettings();
+          this.plugin.syncCustomTypes();
+          renderTypes();
         });
       }
     };
@@ -448,27 +446,25 @@ export class CodexSettingTab extends PluginSettingTab {
       .setName('Add custom type')
       .addText(text =>
         text
-          .setPlaceholder('Deity, spell, vehicle')
+          .setPlaceholder('e.g. deity, spell, vehicle')
           .onChange(value => { newTypeValue = value; }),
       )
       .addButton(button =>
         button
           .setButtonText('Add')
           .setCta()
-          .onClick(() => {
-            void (async () => {
-              const cleaned = newTypeValue.trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
-              if (!cleaned) return;
-              if (this.plugin.settings.entityTypes.includes(cleaned)) {
-                new Notice(`"${cleaned}" is already in the list.`);
-                return;
-              }
-              this.plugin.settings.entityTypes.push(cleaned);
-              await this.plugin.saveSettings();
-              this.plugin.syncCustomTypes();
-              newTypeValue = '';
-              this.display();
-            })();
+          .onClick(async () => {
+            const cleaned = newTypeValue.trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
+            if (!cleaned) return;
+            if (this.plugin.settings.entityTypes.includes(cleaned)) {
+              new Notice(`"${cleaned}" is already in the list.`);
+              return;
+            }
+            this.plugin.settings.entityTypes.push(cleaned);
+            await this.plugin.saveSettings();
+            this.plugin.syncCustomTypes();
+            newTypeValue = '';
+            this.display();
           }),
       );
 
@@ -479,13 +475,11 @@ export class CodexSettingTab extends PluginSettingTab {
         button
           .setButtonText('Reset')
           .setWarning()
-          .onClick(() => {
-            void (async () => {
-              this.plugin.settings.entityTypes = [...DEFAULT_ENTITY_TYPES];
-              await this.plugin.saveSettings();
-              this.plugin.syncCustomTypes();
-              this.display();
-            })();
+          .onClick(async () => {
+            this.plugin.settings.entityTypes = [...DEFAULT_ENTITY_TYPES];
+            await this.plugin.saveSettings();
+            this.plugin.syncCustomTypes();
+            this.display();
           }),
       );
 
@@ -510,21 +504,18 @@ export class CodexSettingTab extends PluginSettingTab {
       .setDesc('Open the templates folder in the file explorer to edit templates.')
       .addButton(button =>
         button
-          .setButtonText('Open folder')
-          .onClick(() => {
-            void (async () => {
-              const folder = this.plugin.settings.templateFolder || '_codex/templates';
-              await this.plugin.ensureTemplates();
-              const abstractFile = this.app.vault.getAbstractFileByPath(folder);
-              if (abstractFile) {
-                const fileExplorer = this.app.workspace.getLeavesOfType('file-explorer')[0];
-                if (fileExplorer) {
-                  await this.app.workspace.revealLeaf(fileExplorer);
-                  const view = fileExplorer.view as unknown as { revealInFolder?: (file: unknown) => void };
-                  view.revealInFolder?.(abstractFile);
-                }
+          .setButtonText('Open Folder')
+          .onClick(async () => {
+            const folder = this.plugin.settings.templateFolder || '_codex/templates';
+            await this.plugin.ensureTemplates();
+            const abstractFile = this.app.vault.getAbstractFileByPath(folder);
+            if (abstractFile) {
+              const fileExplorer = this.app.workspace.getLeavesOfType('file-explorer')[0];
+              if (fileExplorer) {
+                this.app.workspace.revealLeaf(fileExplorer);
+                (fileExplorer.view as any)?.revealInFolder?.(abstractFile);
               }
-            })();
+            }
           }),
       );
 
@@ -533,10 +524,10 @@ export class CodexSettingTab extends PluginSettingTab {
       .setDesc('Overwrite all template files with built-in defaults.')
       .addButton(button =>
         button
-          .setButtonText('Reset to defaults')
+          .setButtonText('Reset to Defaults')
           .setWarning()
-          .onClick(() => {
-            void this.plugin.resetTemplates();
+          .onClick(async () => {
+            await this.plugin.resetTemplates();
           }),
       );
 
@@ -549,17 +540,15 @@ export class CodexSettingTab extends PluginSettingTab {
       .addButton(button =>
         button
           .setButtonText('Re-index')
-          .onClick(() => {
-            void (async () => {
-              button.setButtonText('Indexing...');
-              button.setDisabled(true);
-              this.plugin.registry.clear();
-              await this.plugin.vaultAdapter.fullIndex();
-              this.plugin.refreshWarningsView();
-              new Notice(`Codex: Re-indexed ${this.plugin.registry.size} entities`);
-              button.setButtonText('Re-index');
-              button.setDisabled(false);
-            })();
+          .onClick(async () => {
+            button.setButtonText('Indexing...');
+            button.setDisabled(true);
+            this.plugin.registry.clear();
+            await this.plugin.vaultAdapter.fullIndex();
+            this.plugin.refreshWarningsView();
+            new Notice(`Codex: Re-indexed ${this.plugin.registry.size} entities`);
+            button.setButtonText('Re-index');
+            button.setDisabled(false);
           }),
       );
 
@@ -568,15 +557,13 @@ export class CodexSettingTab extends PluginSettingTab {
       .setDesc('Add plural/singular variants as aliases to all entity files.')
       .addButton(button =>
         button
-          .setButtonText('Generate aliases')
-          .onClick(() => {
-            void (async () => {
-              button.setButtonText('Generating...');
-              button.setDisabled(true);
-              await this.plugin.generatePluralAliases();
-              button.setButtonText('Generate aliases');
-              button.setDisabled(false);
-            })();
+          .setButtonText('Generate Aliases')
+          .onClick(async () => {
+            button.setButtonText('Generating...');
+            button.setDisabled(true);
+            await this.plugin.generatePluralAliases();
+            button.setButtonText('Generate Aliases');
+            button.setDisabled(false);
           }),
       );
   }

@@ -7,10 +7,6 @@ export class VaultAdapter {
     private registry: EntityRegistry,
   ) {}
 
-  get configDir(): string {
-    return this.app.vault.configDir;
-  }
-
   /**
    * Perform a full index of all Markdown files in the vault.
    */
@@ -64,7 +60,8 @@ export class VaultAdapter {
   }
 
   private shouldIgnore(path: string): boolean {
-    const ignoredPrefixes = [`${this.app.vault.configDir}/`, '.trash/', '.codex/'];
+    const configDir = this.app.vault.configDir || '.obsidian';
+    const ignoredPrefixes = [`${configDir}/`, '.trash/', '.codex/'];
     return ignoredPrefixes.some(prefix => path.startsWith(prefix));
   }
 }

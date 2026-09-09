@@ -1,6 +1,6 @@
 {
   "name": "@codex-ide/obsidian",
-  "version": "0.4.0-beta.1",
+  "version": "0.4.1",
   "description": "Obsidian plugin for narrative linting and entity intelligence",
   "main": "main.js",
   "scripts": {
@@ -11,12 +11,9 @@
     "@codex-ide/core": "*"
   },
   "devDependencies": {
-    "@codemirror/state": "^6.0.0",
-    "@codemirror/view": "^6.0.0",
     "@types/node": "^20.0.0",
     "builtin-modules": "^4.0.0",
     "esbuild": "^0.21.0",
-    "fuse.js": "^7.0.0",
     "obsidian": "latest",
     "typescript": "^5.4.0"
   }

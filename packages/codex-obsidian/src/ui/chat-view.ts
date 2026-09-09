@@ -1,9 +1,10 @@
-import { ItemView, WorkspaceLeaf, Notice, MarkdownRenderer, TFile, Menu } from 'obsidian';
+import { ItemView, WorkspaceLeaf, Notice, MarkdownRenderer, TFile, Menu, setIcon } from 'obsidian';
 import type CodexPlugin from '../main';
 import type { ChatMessage } from '@codex-ide/core';
 import { buildSystemPrompt } from '@codex-ide/core';
 import { extractMarkdown, extractNameFromContent, extractTypeFromContent, hasFrontmatter, ENTITY_FOLDER_MAP } from '../util/ai-helpers';
 import { proposeEdit } from './diff-review-modal';
+import { getActiveWindow } from '../util/dom';
 
 export const CHAT_VIEW_TYPE = 'codex-lore-chat';
 
@@ -287,7 +288,7 @@ export class LoreChatView extends ItemView {
       cls: 'codex-chat-drawer-toggle',
       attr: { 'aria-label': 'Toggle chat list' },
     });
-    drawerToggle.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>';
+    setIcon(drawerToggle, 'menu');
     drawerToggle.addEventListener('click', () => this.toggleDrawer());
 
     this.threadTitleEl = leftGroup.createSpan({ cls: 'codex-chat-title' });
@@ -299,7 +300,7 @@ export class LoreChatView extends ItemView {
       cls: 'codex-chat-header-btn',
       attr: { 'aria-label': 'New chat' },
     });
-    newBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
+    setIcon(newBtn, 'plus');
     newBtn.addEventListener('click', () => { void this.createNewThread(); });
 
     this.threadListEl = container.createDiv({ cls: 'codex-chat-thread-list' });
@@ -378,7 +379,7 @@ export class LoreChatView extends ItemView {
         cls: 'codex-chat-thread-menu-btn',
         attr: { 'aria-label': 'Thread options' },
       });
-      menuBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>';
+      setIcon(menuBtn, 'more-horizontal');
       menuBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         this.showThreadMenu(thread, menuBtn);
@@ -505,7 +506,7 @@ export class LoreChatView extends ItemView {
 
     try {
       console.debug('Codex Chat: assembling context...');
-      const context = this.plugin.contextAssembler.assemble(lastUserMsg.content);
+      let context = this.plugin.contextAssembler.assemble(lastUserMsg.content);
       console.debug(`Codex Chat: context has ${context.entities.length} entities`);
 
       const systemPrompt = buildSystemPrompt(context, {
@@ -682,7 +683,7 @@ export class LoreChatView extends ItemView {
     copyBtn.addEventListener('click', () => {
       void navigator.clipboard.writeText(rawContent).then(() => {
         copyBtn.setText('Copied!');
-        setTimeout(() => copyBtn.setText('Copy'), 1500);
+        getActiveWindow().setTimeout(() => copyBtn.setText('Copy'), 1500);
       });
     });
   }
