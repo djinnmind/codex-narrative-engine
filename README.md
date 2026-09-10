@@ -4,7 +4,7 @@ An [Obsidian](https://obsidian.md) plugin that adds narrative intelligence to yo
 
 ## Quick Start
 
-1. **Install** the plugin ([via BRAT](#via-brat-recommended) or [manually](docs/getting-started.md#manual--sideload); community listing coming soon).
+1. **Install** from [Obsidian Community Plugins](#from-obsidian-community-plugins) (or [BRAT](#via-brat-prereleases) / [manually](docs/getting-started.md#manual--sideload)).
 2. **Add frontmatter** to your notes — at minimum `type: npc`, `type: location`, etc. — so Codex can index them.
 3. **Open the warnings panel** (ribbon icon or `Codex: Open narrative warnings`) to see dead links and state conflicts.
 4. **Set up an AI provider** in Settings > Codex Narrative Engine > AI provider to unlock Lore Chat and AI-powered generation.
@@ -43,20 +43,23 @@ All AI features use your own API key — no subscription required. Supports **Go
 
 ## Installation
 
-### Via BRAT (recommended)
+### From Obsidian Community Plugins
 
-[BRAT](https://github.com/TfTHacker/obsidian42-brat) installs plugins directly from GitHub and keeps them updated automatically.
+1. Open **Settings > Community Plugins** and turn restricted mode off
+2. Click **Browse** and search for **Codex Narrative Engine**
+3. Click **Install**, then **Enable**
+
+Listed as [Codex Narrative Engine](https://community.obsidian.md/plugins/codex-narrative-engine) in the directory.
+
+### Via BRAT (prereleases)
+
+[BRAT](https://github.com/TfTHacker/obsidian42-brat) installs from GitHub and can follow prerelease tags on the `beta` branch.
 
 1. Install **BRAT** from Settings > Community Plugins (search "BRAT")
 2. Open **Settings > BRAT > Add Beta Plugin**
 3. Enter `djinnmind/codex-narrative-engine` and click **Add Plugin**
-4. Enable **Codex Narrative Engine** in Settings > Community Plugins
-
-### From Obsidian Community Plugins (coming soon)
-
-1. Open **Settings > Community Plugins**
-2. Search for **Codex Narrative Engine**
-3. Click **Install**, then **Enable**
+4. Enable **Download prereleases** in BRAT if you want beta builds
+5. Enable **Codex Narrative Engine** in Settings > Community Plugins
 
 ### Manual / Sideload
 
@@ -101,6 +104,10 @@ packages/
 ```
 
 `codex-core` has no dependency on Obsidian and can be reused in other editors.
+
+## Feedback
+
+Bugs, questions, and feature requests are welcome on [GitHub Issues](https://github.com/djinnmind/codex-narrative-engine/issues). There is no Discord yet — the issue tracker is the inbox.
 
 ## License
 
