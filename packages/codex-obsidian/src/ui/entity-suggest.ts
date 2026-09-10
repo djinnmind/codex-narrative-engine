@@ -7,6 +7,7 @@ import {
   EditorSuggestTriggerInfo,
   TFile,
 } from 'obsidian';
+import { getActiveWindow } from '../util/dom';
 import type CodexPlugin from '../main';
 import type { Entity, EntityType } from '@codex-ide/core';
 
@@ -198,7 +199,7 @@ export class EntitySuggest extends EditorSuggest<SuggestItem> {
 
     const replacement = `${item.display}]]`;
     this.close();
-    requestAnimationFrame(() => {
+    getActiveWindow().requestAnimationFrame(() => {
       editor.replaceRange(replacement, start, end);
     });
   }

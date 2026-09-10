@@ -1,51 +1,8 @@
 import { Modal, Notice, TFile } from 'obsidian';
 import { computeLineDiff } from '@codex-ide/core';
-import type { DiffLine } from '@codex-ide/core';
 import type CodexPlugin from '../main';
-
-/**
- * Collapse long unchanged regions, keeping `margin` context lines around changes.
- */
-function collapseContext(lines: DiffLine[], margin = 3): (DiffLine | { type: 'collapsed'; count: number })[] {
-  const isChange = (l: DiffLine) => l.type !== 'context';
-  const changeIndices = lines.map((l, i) => isChange(l) ? i : -1).filter(i => i >= 0);
-
-  if (changeIndices.length === 0) {
-    if (lines.length <= margin * 2 + 1) return lines;
-    return [
-      ...lines.slice(0, margin),
-      { type: 'collapsed' as const, count: lines.length - margin * 2 },
-      ...lines.slice(lines.length - margin),
-    ];
-  }
-
-  const visible = new Set<number>();
-  for (const ci of changeIndices) {
-    for (let k = Math.max(0, ci - margin); k <= Math.min(lines.length - 1, ci + margin); k++) {
-      visible.add(k);
-    }
-  }
-
-  const output: (DiffLine | { type: 'collapsed'; count: number })[] = [];
-  let hiddenRun = 0;
-
-  for (let i = 0; i < lines.length; i++) {
-    if (visible.has(i)) {
-      if (hiddenRun > 0) {
-        output.push({ type: 'collapsed', count: hiddenRun });
-        hiddenRun = 0;
-      }
-      output.push(lines[i]);
-    } else {
-      hiddenRun++;
-    }
-  }
-  if (hiddenRun > 0) {
-    output.push({ type: 'collapsed', count: hiddenRun });
-  }
-
-  return output;
-}
+import { renderDiffBody } from './diff-render';
+import { installResizableModal } from './resizable-modal';
 
 // ---------------------------------------------------------------------------
 // Diff Review Modal
@@ -54,10 +11,12 @@ function collapseContext(lines: DiffLine[], margin = 3): (DiffLine | { type: 'co
 class DiffReviewModal extends Modal {
   private resolved = false;
   private onResolve: (accepted: boolean) => void = () => {};
+  private uninstallResize: (() => void) | null = null;
+  private onKey: ((e: KeyboardEvent) => void) | null = null;
 
   constructor(
     private plugin: CodexPlugin,
-    private file: TFile,
+    private displayName: string,
     private oldContent: string,
     private newContent: string,
     private label: string,
@@ -70,51 +29,67 @@ class DiffReviewModal extends Modal {
   });
 
   onOpen(): void {
+    this.uninstallResize = installResizableModal(this.modalEl, {
+      storageKey: 'codex-diff-modal-size',
+    });
+
     const { contentEl } = this;
     contentEl.addClass('codex-diff-modal');
 
     const rawDiff = computeLineDiff(this.oldContent, this.newContent);
     const additions = rawDiff.filter(l => l.type === 'add').length;
     const removals = rawDiff.filter(l => l.type === 'remove').length;
-    const collapsed = collapseContext(rawDiff);
 
     contentEl.createEl('h3', { text: `Review: ${this.label}` });
-    contentEl.createEl('p', {
-      text: `${this.file.basename}  —  +${additions} / -${removals} lines`,
-      cls: 'codex-diff-summary',
-    });
+    const summary = contentEl.createEl('p', { cls: 'codex-diff-summary' });
+    summary.createSpan({ text: `${this.displayName}  —  ` });
+    summary.createSpan({ text: `+${additions}`, cls: 'codex-diff-stat-add' });
+    summary.createSpan({ text: ' / ' });
+    summary.createSpan({ text: `−${removals}`, cls: 'codex-diff-stat-remove' });
+    summary.createSpan({ text: ' lines' });
 
     const body = contentEl.createDiv({ cls: 'codex-diff-body' });
-
-    for (const entry of collapsed) {
-      if (entry.type === 'collapsed') {
-        const row = body.createDiv({ cls: 'codex-diff-collapsed' });
-        row.setText(`··· ${entry.count} unchanged lines ···`);
-        continue;
-      }
-      const row = body.createDiv({ cls: `codex-diff-line codex-diff-line-${entry.type}` });
-      const prefix = entry.type === 'add' ? '+ ' : entry.type === 'remove' ? '- ' : '  ';
-      row.setText(prefix + entry.text);
-    }
+    renderDiffBody(body, this.oldContent, this.newContent);
 
     const actions = contentEl.createDiv({ cls: 'codex-diff-actions' });
 
-    const rejectBtn = actions.createEl('button', { text: 'Reject' });
-    rejectBtn.addEventListener('click', () => {
-      this.resolved = true;
-      this.onResolve(false);
-      this.close();
+    const hint = actions.createSpan({
+      text: 'Drag the bottom-right corner to resize',
+      cls: 'codex-diff-resize-hint',
     });
+    hint.setAttr('aria-hidden', 'true');
+
+    const rejectBtn = actions.createEl('button', { text: 'Reject' });
+    rejectBtn.addEventListener('click', () => this.finish(false));
 
     const acceptBtn = actions.createEl('button', { text: 'Accept', cls: 'mod-cta' });
-    acceptBtn.addEventListener('click', () => {
-      this.resolved = true;
-      this.onResolve(true);
-      this.close();
-    });
+    acceptBtn.setAttr('title', 'Enter');
+    acceptBtn.addEventListener('click', () => this.finish(true));
+
+    this.onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' || e.isComposing) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT')) return;
+      e.preventDefault();
+      this.finish(true);
+    };
+    this.modalEl.addEventListener('keydown', this.onKey);
+  }
+
+  private finish(accepted: boolean): void {
+    if (this.resolved) return;
+    this.resolved = true;
+    this.onResolve(accepted);
+    this.close();
   }
 
   onClose(): void {
+    if (this.onKey) {
+      this.modalEl.removeEventListener('keydown', this.onKey);
+      this.onKey = null;
+    }
+    this.uninstallResize?.();
+    this.uninstallResize = null;
     if (!this.resolved) {
       this.onResolve(false);
     }
@@ -126,6 +101,13 @@ class DiffReviewModal extends Modal {
 // Public API
 // ---------------------------------------------------------------------------
 
+export interface ProposeEditOptions {
+  /** When false, skip the Applied/Rejected notices (recipe runner reports a summary). */
+  notices?: boolean;
+  /** When false, refuse instead of overwriting an existing file. */
+  allowOverwrite?: boolean;
+}
+
 /**
  * Show a diff review modal for an AI-proposed edit.
  * Returns true if the user accepted the changes (file already written),
@@ -136,25 +118,78 @@ export async function proposeEdit(
   file: TFile,
   newContent: string,
   label: string,
+  opts: ProposeEditOptions = {},
 ): Promise<boolean> {
+  const notices = opts.notices !== false;
   const oldContent = await plugin.app.vault.read(file);
 
   if (oldContent === newContent) {
-    new Notice('Codex: No changes to suggest.');
+    if (notices) new Notice('Codex: No changes to suggest.');
     return false;
   }
 
-  const modal = new DiffReviewModal(plugin, file, oldContent, newContent, label);
-  modal.open();
-
-  const accepted = await modal.result;
-
+  const accepted = await openDiffReview(plugin, file.basename, oldContent, newContent, label);
   if (accepted) {
     await plugin.app.vault.modify(file, newContent);
-    new Notice(`Codex: Applied changes to ${file.basename}`);
-  } else {
+    if (notices) new Notice(`Codex: Applied changes to ${file.basename}`);
+  } else if (notices) {
     new Notice('Codex: Changes rejected.');
   }
-
   return accepted;
+}
+
+/**
+ * Review a new file as a diff against empty, then create it.
+ */
+export async function proposeCreate(
+  plugin: CodexPlugin,
+  path: string,
+  newContent: string,
+  label: string,
+  opts: ProposeEditOptions = {},
+): Promise<boolean> {
+  const notices = opts.notices !== false;
+  const existing = plugin.app.vault.getAbstractFileByPath(path);
+  if (existing instanceof TFile) {
+    if (opts.allowOverwrite === false) {
+      if (notices) new Notice(`Codex: ${path} already exists — skipped create.`);
+      return false;
+    }
+    return proposeEdit(plugin, existing, newContent, label, opts);
+  }
+
+  const accepted = await openDiffReview(
+    plugin,
+    path.split('/').pop() ?? path,
+    '',
+    newContent,
+    label,
+  );
+  if (!accepted) {
+    if (notices) new Notice('Codex: Changes rejected.');
+    return false;
+  }
+
+  const slash = path.lastIndexOf('/');
+  if (slash > 0) {
+    const folder = path.slice(0, slash);
+    if (!plugin.app.vault.getAbstractFileByPath(folder)) {
+      await plugin.app.vault.createFolder(folder);
+    }
+  }
+  await plugin.app.vault.create(path, newContent);
+  if (notices) new Notice(`Codex: Created ${path}`);
+  return true;
+}
+
+function openDiffReview(
+  plugin: CodexPlugin,
+  displayName: string,
+  oldContent: string,
+  newContent: string,
+  label: string,
+): Promise<boolean> {
+  const modal = new DiffReviewModal(plugin, displayName, oldContent, newContent, label);
+  modal.open();
+  return modal.result;
 }

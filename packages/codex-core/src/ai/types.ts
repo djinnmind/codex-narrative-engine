@@ -63,10 +63,20 @@ export interface EntitySummary {
   name: string;
   type: EntityType;
   filePath: string;
+  aliases: string[];
   frontmatter: Record<string, unknown>;
+  /** Hover-sized preview (kept for compact UI / Cloud hit mapping). */
   bodyPreview: string;
+  /** Longer excerpt used in AI system prompts. */
+  bodyExcerpt: string;
   linkedEntityNames: string[];
   statblockRaw?: string;
+}
+
+export interface FollowedNote {
+  name: string;
+  filePath: string;
+  body: string;
 }
 
 export interface VaultContext {
@@ -74,6 +84,10 @@ export interface VaultContext {
   recentSessions: string[];
   worldRules: string[];
   totalEntityCount: number;
+  /** Full local note bodies read on this turn (plugin follow). */
+  followedNotes?: FollowedNote[];
+  /** Capitalized names in the query that did not match the index. */
+  unknownNames?: string[];
 }
 
 // ---------------------------------------------------------------------------

@@ -1,3 +1,4 @@
+import { getActiveWindow } from '../util/dom';
 import { ViewPlugin, ViewUpdate, EditorView } from '@codemirror/view';
 import type CodexPlugin from '../main';
 
@@ -27,7 +28,7 @@ export function createLinkStylingPlugin(plugin: CodexPlugin) {
       private scheduleFixup(): void {
         if (this.pending) return;
         this.pending = true;
-        requestAnimationFrame(() => {
+        getActiveWindow().requestAnimationFrame(() => {
           this.pending = false;
           this.fixUnresolvedLinks();
         });

@@ -44,7 +44,28 @@ export function extractMarkdown(response: string): string {
     content = trimmed + '\n';
   }
 
-  return sanitizeStatblocks(content);
+  return sanitizeStatblocks(stripToFrontmatter(content));
+}
+
+/**
+ * Drop LLM chatter / a leading ```yaml fence so the note still starts with
+ * `---` and can be indexed.
+ */
+export function stripToFrontmatter(content: string): string {
+  let t = content.trimStart();
+  const openFence = t.match(/^```(?:ya?ml|markdown|md)?\s*\n/i);
+  if (openFence) {
+    const after = t.slice(openFence[0].length).trimStart();
+    if (after.startsWith('---')) {
+      t = after.replace(/\n```\s*$/, '').trimEnd() + '\n';
+    }
+  }
+  if (t.startsWith('---')) return t.endsWith('\n') ? t : `${t}\n`;
+  const idx = t.search(/^---\s*$/m);
+  if (idx < 0) return content;
+  const rest = t.slice(idx);
+  if (!hasFrontmatter(rest)) return content;
+  return rest.endsWith('\n') ? rest : `${rest}\n`;
 }
 
 function sanitizeStatblocks(content: string): string {

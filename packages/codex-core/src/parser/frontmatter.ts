@@ -77,6 +77,27 @@ function filePathToName(filePath: string): string {
  * Generate a body preview: first N non-empty lines of the Markdown body.
  */
 export function bodyPreview(bodyContent: string, maxLines = 3): string {
+  return takeBodyLines(bodyContent, maxLines);
+}
+
+/** Default AI excerpt: enough prose to ground a prompt, not a full note. */
+export const AI_EXCERPT_MAX_LINES = 40;
+export const AI_EXCERPT_MAX_CHARS = 2000;
+
+/**
+ * Longer body window for LLM context. Hover should keep using `bodyPreview`.
+ */
+export function bodyExcerpt(
+  bodyContent: string,
+  maxLines = AI_EXCERPT_MAX_LINES,
+  maxChars = AI_EXCERPT_MAX_CHARS,
+): string {
+  const text = takeBodyLines(bodyContent, maxLines);
+  if (text.length <= maxChars) return text;
+  return text.slice(0, maxChars).trimEnd();
+}
+
+function takeBodyLines(bodyContent: string, maxLines: number): string {
   return bodyContent
     .split('\n')
     .map(l => l.trim())

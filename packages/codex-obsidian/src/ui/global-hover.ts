@@ -1,5 +1,6 @@
 import type CodexPlugin from '../main';
 import { renderEntityTooltip } from './hover-tooltip';
+import { getActiveDocument } from '../util/dom';
 
 const TOOLTIP_CLS = 'codex-global-hover-tooltip';
 
@@ -65,7 +66,7 @@ export function installGlobalHover(plugin: CodexPlugin): () => void {
 
     const tooltipEl = renderEntityTooltip(entity, refPaths.size);
     tooltipEl.classList.add(TOOLTIP_CLS);
-    document.body.appendChild(tooltipEl);
+    getActiveDocument().body.appendChild(tooltipEl);
     activeTooltip = tooltipEl;
 
     const rect = link.getBoundingClientRect();
@@ -110,12 +111,12 @@ export function installGlobalHover(plugin: CodexPlugin): () => void {
     removeTooltip();
   }
 
-  document.addEventListener('mouseover', onMouseOver, true);
-  document.addEventListener('mousemove', onMouseMove);
+  getActiveDocument().addEventListener('mouseover', onMouseOver, true);
+  getActiveDocument().addEventListener('mousemove', onMouseMove);
 
   return () => {
-    document.removeEventListener('mouseover', onMouseOver, true);
-    document.removeEventListener('mousemove', onMouseMove);
+    getActiveDocument().removeEventListener('mouseover', onMouseOver, true);
+    getActiveDocument().removeEventListener('mousemove', onMouseMove);
     removeTooltip();
   };
 }

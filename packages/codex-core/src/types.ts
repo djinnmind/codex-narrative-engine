@@ -14,7 +14,10 @@ export interface Entity {
   type: EntityType;
   frontmatter: Record<string, unknown>;
   links: LinkReference[];
+  /** First ~3 non-empty body lines — hover cards and compact UI. */
   bodyPreview: string;
+  /** Longer body window for AI prompts (not the full file). */
+  bodyExcerpt: string;
   statblock?: StatblockData;
 }
 

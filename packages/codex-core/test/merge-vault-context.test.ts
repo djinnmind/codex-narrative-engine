@@ -6,8 +6,10 @@ const baseEntity = (name: string, path: string): EntitySummary => ({
   name,
   type: 'npc',
   filePath: path,
+  aliases: [],
   frontmatter: {},
   bodyPreview: 'x',
+  bodyExcerpt: 'x',
   linkedEntityNames: [],
 });
 

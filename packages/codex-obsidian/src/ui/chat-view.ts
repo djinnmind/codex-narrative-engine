@@ -1,9 +1,13 @@
-import { ItemView, WorkspaceLeaf, Notice, MarkdownRenderer, TFile, Menu } from 'obsidian';
+import { ItemView, WorkspaceLeaf, Notice, MarkdownRenderer, TFile, Menu, setIcon } from 'obsidian';
 import type CodexPlugin from '../main';
 import type { ChatMessage } from '@codex-ide/core';
-import { buildSystemPrompt } from '@codex-ide/core';
+import { buildSystemPrompt, matchRecipeIntent, messagesForLookupTurn, mentionPinsFromEntities } from '@codex-ide/core';
 import { extractMarkdown, extractNameFromContent, extractTypeFromContent, hasFrontmatter, ENTITY_FOLDER_MAP } from '../util/ai-helpers';
 import { proposeEdit } from './diff-review-modal';
+import { getActiveWindow } from '../util/dom';
+import { ChatSuggest } from './chat-suggest';
+import { readFollowedNotes } from '../ai/follow-notes';
+import { tryHandleRecipeChat } from '../commands/recipes';
 
 export const CHAT_VIEW_TYPE = 'codex-lore-chat';
 
@@ -149,6 +153,8 @@ export class LoreChatView extends ItemView {
   private inputEl!: HTMLTextAreaElement;
   private messagesEl!: HTMLElement;
   private sendBtn!: HTMLButtonElement;
+  private followHintEl!: HTMLElement;
+  private chatSuggest: ChatSuggest | null = null;
   private threadListEl!: HTMLElement;
   private threadTitleEl!: HTMLElement;
   private threadDrawerOpen = false;
@@ -172,9 +178,12 @@ export class LoreChatView extends ItemView {
     this.buildUI();
     this.renderMessages();
     this.renderThreadList();
+    this.scrollToBottom();
   }
 
   async onClose(): Promise<void> {
+    this.chatSuggest?.destroy();
+    this.chatSuggest = null;
     await this.saveCurrentThread();
     this.contentEl.empty();
   }
@@ -287,7 +296,7 @@ export class LoreChatView extends ItemView {
       cls: 'codex-chat-drawer-toggle',
       attr: { 'aria-label': 'Toggle chat list' },
     });
-    drawerToggle.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>';
+    setIcon(drawerToggle, 'menu');
     drawerToggle.addEventListener('click', () => this.toggleDrawer());
 
     this.threadTitleEl = leftGroup.createSpan({ cls: 'codex-chat-title' });
@@ -299,7 +308,7 @@ export class LoreChatView extends ItemView {
       cls: 'codex-chat-header-btn',
       attr: { 'aria-label': 'New chat' },
     });
-    newBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
+    setIcon(newBtn, 'plus');
     newBtn.addEventListener('click', () => { void this.createNewThread(); });
 
     this.threadListEl = container.createDiv({ cls: 'codex-chat-thread-list' });
@@ -310,10 +319,14 @@ export class LoreChatView extends ItemView {
 
     this.inputEl = inputArea.createEl('textarea', {
       cls: 'codex-chat-input',
-      attr: { placeholder: 'Ask about your world...', rows: '3' },
+      attr: { placeholder: 'Ask about your world…  @session  @recipe', rows: '3' },
     });
 
+    this.chatSuggest?.destroy();
+    this.chatSuggest = new ChatSuggest(this.inputEl, this.plugin.registry);
+
     this.inputEl.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (this.chatSuggest?.isOpen) return;
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         void this.handleSend();
@@ -322,9 +335,8 @@ export class LoreChatView extends ItemView {
 
     const inputFooter = inputArea.createDiv({ cls: 'codex-chat-input-footer' });
 
-    const contextHint = inputFooter.createSpan({ cls: 'codex-chat-context-hint' });
-    const entityCount = this.plugin.registry.size;
-    contextHint.setText(`${entityCount} entities indexed`);
+    this.followHintEl = inputFooter.createSpan({ cls: 'codex-chat-context-hint' });
+    this.followHintEl.setText(`${this.plugin.registry.size} entities indexed`);
 
     this.sendBtn = inputFooter.createEl('button', {
       cls: 'codex-chat-send-btn',
@@ -378,7 +390,7 @@ export class LoreChatView extends ItemView {
         cls: 'codex-chat-thread-menu-btn',
         attr: { 'aria-label': 'Thread options' },
       });
-      menuBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>';
+      setIcon(menuBtn, 'more-horizontal');
       menuBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         this.showThreadMenu(thread, menuBtn);
@@ -500,13 +512,61 @@ export class LoreChatView extends ItemView {
     this.sendBtn.setText('...');
 
     const thinkingEl = this.messagesEl.createDiv({ cls: 'codex-chat-message codex-chat-assistant' });
-    thinkingEl.createDiv({ cls: 'codex-chat-thinking', text: 'Thinking...' });
+    const recipeTurn = matchRecipeIntent(lastUserMsg.content) !== null
+      || /(^|\s)@recipe\b/i.test(lastUserMsg.content);
+    const thinkingText = thinkingEl.createDiv({
+      cls: 'codex-chat-thinking',
+      text: recipeTurn ? 'Recipe…' : 'Thinking...',
+    });
     this.scrollToBottom();
 
     try {
+      const recipeReply = await tryHandleRecipeChat(this.plugin, lastUserMsg.content);
+      if (recipeReply !== null) {
+        thinkingEl.remove();
+        this.messages.push({ role: 'assistant', content: recipeReply });
+        this.renderMessages();
+        this.scrollToBottom();
+        await this.saveCurrentThread();
+        return;
+      }
+
       console.debug('Codex Chat: assembling context...');
-      const context = this.plugin.contextAssembler.assemble(lastUserMsg.content);
+      const assembled = this.plugin.contextAssembler.assembleForChat(lastUserMsg.content);
+      let context = assembled.context;
       console.debug(`Codex Chat: context has ${context.entities.length} entities`);
+
+      const s = this.plugin.settings;
+      const mentionSeeds = this.plugin.contextAssembler.extractMentionedEntities(
+        assembled.remainder,
+        this.plugin.registry.getAllEntities(),
+      );
+      const statusParts: string[] = [];
+      if (assembled.directives.length > 0) {
+        statusParts.push(assembled.directives.join(' '));
+      }
+      if (assembled.context.unknownNames?.length) {
+        statusParts.push(`not in vault: ${assembled.context.unknownNames.join(', ')}`);
+      }
+
+      const followed = await readFollowedNotes(
+        this.app,
+        context.entities,
+        assembled.seedPaths,
+        { excludedFolders: s.aiExcludedFolders },
+      );
+      if (followed.length > 0) {
+        context = { ...context, followedNotes: followed };
+        statusParts.push(`followed ${followed.map(n => n.name).join(', ')}`);
+        this.followHintEl.setText(`Followed: ${followed.map(n => n.name).join(', ')}`);
+      } else {
+        this.followHintEl.setText(`${this.plugin.registry.size} entities indexed`);
+      }
+
+      if (statusParts.length > 0) {
+        thinkingText.setText(`Using ${statusParts.join(' · ')}…`);
+        new Notice(`Codex: ${statusParts[0]}`);
+      }
 
       const systemPrompt = buildSystemPrompt(context, {
         ruleSystem: this.plugin.settings.aiRuleSystem,
@@ -515,14 +575,20 @@ export class LoreChatView extends ItemView {
       });
       console.debug(`Codex Chat: system prompt is ${systemPrompt.length} chars`);
 
-      const msgs = this.messages.filter(m => m.role !== 'system');
+      const msgs = messagesForLookupTurn(
+        this.messages.filter(m => m.role !== 'system'),
+        mentionPinsFromEntities(mentionSeeds),
+      );
       console.debug(`Codex Chat: sending ${msgs.length} messages to provider...`);
 
       const response = await provider.chat({
         systemPrompt,
         messages: msgs,
         context,
-        temperature: this.plugin.settings.aiTemperature,
+        temperature:
+          mentionSeeds.length > 0
+            ? Math.min(this.plugin.settings.aiTemperature, 0.2)
+            : this.plugin.settings.aiTemperature,
       });
 
       console.debug(`Codex Chat: got response (${response.content.length} chars)`);
@@ -570,15 +636,15 @@ export class LoreChatView extends ItemView {
       empty.createEl('div', { text: '\u{1F3B2}', cls: 'codex-chat-empty-icon' });
       empty.createEl('p', { text: 'Ask anything about your world.' });
       empty.createEl('p', {
-        text: 'Your vault\'s entities, sessions, and lore are used as context.',
+        text: 'Use @session / @npc to follow notes, or @recipe like a skill.',
         cls: 'codex-chat-empty-hint',
       });
 
       const examples = empty.createDiv({ cls: 'codex-chat-examples' });
       const exampleQueries = [
         'What does my party know about the cult?',
-        'Generate a shopkeeper NPC for the market district',
-        'Summarize last session\'s key events',
+        '@npc-at-location at [[Blackmoss Landing]] into [[The Lockdown]] and [[The Sunken Spire\'s Heartbeat]]',
+        '@add-location near [[Blackmoss Landing]] from [[Session 5]]',
         'What plot hooks are still unresolved?',
       ];
       for (const q of exampleQueries) {
@@ -592,6 +658,7 @@ export class LoreChatView extends ItemView {
     }
 
     const visibleMessages = this.messages.filter(m => m.role !== 'system');
+    const pendingRenders: Promise<void>[] = [];
 
     for (let i = 0; i < visibleMessages.length; i++) {
       const msg = visibleMessages[i];
@@ -610,12 +677,14 @@ export class LoreChatView extends ItemView {
         const displayContent = stripFrontmatterForDisplay(
           normalizeInformalFrontmatter(msg.content),
         );
-        void MarkdownRenderer.render(
-          this.app,
-          displayContent,
-          contentEl,
-          '',
-          this,
+        pendingRenders.push(
+          MarkdownRenderer.render(
+            this.app,
+            displayContent,
+            contentEl,
+            '',
+            this,
+          ),
         );
         const isLastAssistant = i === visibleMessages.length - 1;
         this.addActionBar(msgEl, msg.content, isLastAssistant ? msgIdx : -1);
@@ -623,6 +692,11 @@ export class LoreChatView extends ItemView {
         contentEl.setText(msg.content);
         this.addUserActionBar(msgEl, msg.content, msgIdx);
       }
+    }
+
+    this.scrollToBottom();
+    if (pendingRenders.length > 0) {
+      void Promise.all(pendingRenders).then(() => this.scrollToBottom());
     }
   }
 
@@ -682,7 +756,7 @@ export class LoreChatView extends ItemView {
     copyBtn.addEventListener('click', () => {
       void navigator.clipboard.writeText(rawContent).then(() => {
         copyBtn.setText('Copied!');
-        setTimeout(() => copyBtn.setText('Copy'), 1500);
+        getActiveWindow().setTimeout(() => copyBtn.setText('Copy'), 1500);
       });
     });
   }
@@ -755,6 +829,15 @@ export class LoreChatView extends ItemView {
   }
 
   private scrollToBottom(): void {
-    this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
+    const el = this.messagesEl;
+    if (!el) return;
+    const go = () => {
+      el.scrollTop = el.scrollHeight;
+    };
+    go();
+    requestAnimationFrame(() => {
+      go();
+      requestAnimationFrame(go);
+    });
   }
 }

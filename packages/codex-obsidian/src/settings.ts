@@ -34,7 +34,7 @@ export const DEFAULT_SETTINGS: CodexSettings = {
   enableDeadLinkWarnings: true,
   enableStateConflictWarnings: true,
   showGutterIcons: true,
-  ignoredFolders: '.obsidian, .trash',
+  ignoredFolders: '.trash',
 
 
   aiProvider: 'gemini',
@@ -110,10 +110,10 @@ export class CodexSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('Ignored folders')
-      .setDesc('Comma-separated list of folders to exclude from indexing.')
+      .setDesc('Comma-separated list of folders to exclude from indexing. The vault config folder is always ignored automatically.')
       .addText(text =>
         text
-          .setPlaceholder('.obsidian, .trash')
+          .setPlaceholder(`${this.app.vault.configDir}, .trash`)
           .setValue(this.plugin.settings.ignoredFolders)
           .onChange(async (value) => {
             this.plugin.settings.ignoredFolders = value;

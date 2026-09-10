@@ -1,9 +1,19 @@
 import { Notice, TFile, Modal, Setting } from 'obsidian';
 import { buildSystemPrompt } from '@codex-ide/core';
-import type { EntityType } from '@codex-ide/core';
+import type { EntityType, VaultContext } from '@codex-ide/core';
 import type CodexPlugin from '../main';
+import { getActiveDocument, getActiveWindow } from '../util/dom';
 import { applySuggestedEdit } from '../ui/suggestion-decorations';
 import { extractMarkdown, extractNameFromContent, ENTITY_FOLDER_MAP } from '../util/ai-helpers';
+import { followContext } from '../ai/follow-notes';
+
+async function assemblePromptContext(plugin: CodexPlugin, query: string): Promise<VaultContext> {
+  const context = plugin.contextAssembler.assemble(query);
+  const seeds = plugin.contextAssembler
+    .extractMentionedEntities(query, plugin.registry.getAllEntities())
+    .map(e => e.filePath);
+  return followContext(plugin.app, context, seeds, plugin.settings.aiExcludedFolders);
+}
 
 // ---------------------------------------------------------------------------
 // Default entity templates — written to _codex/templates/ on first run and
@@ -356,7 +366,7 @@ class EnhanceNoteModal extends Modal {
     const entity = this.plugin.registry.getByPath(this.file.path);
     const typeHint = entity ? entity.type : 'unknown';
 
-    const context = this.plugin.contextAssembler.assemble(content);
+    const context = await assemblePromptContext(this.plugin, content);
     const systemPrompt = buildSystemPrompt(context, {
       ruleSystem: this.plugin.settings.aiRuleSystem,
       campaignTone: this.plugin.settings.aiCampaignTone,
@@ -489,7 +499,7 @@ class ReviseSelectionModal extends Modal {
           .onChange(value => { this.prompt = value; });
         text.inputEl.rows = 3;
         text.inputEl.addClass('codex-modal-textarea');
-        setTimeout(() => text.inputEl.focus(), 50);
+        getActiveWindow().setTimeout(() => text.inputEl.focus(), 50);
       });
 
     new Setting(contentEl)
@@ -526,7 +536,7 @@ class ReviseSelectionModal extends Modal {
 
     const hideSpinner = showSpinner('Revising selection…');
 
-    const context = this.plugin.contextAssembler.assemble(this.selectedText);
+    const context = await assemblePromptContext(this.plugin, this.selectedText);
     const systemPrompt = buildSystemPrompt(context, {
       ruleSystem: this.plugin.settings.aiRuleSystem,
       campaignTone: this.plugin.settings.aiCampaignTone,
@@ -801,7 +811,7 @@ class GenerateEntityModal extends Modal {
 
     const hideSpinner = showSpinner(`Generating ${this.type}…`);
 
-    const context = this.plugin.contextAssembler.assemble(this.guidance || this.type);
+    const context = await assemblePromptContext(this.plugin, this.guidance || this.type);
     const systemPrompt = buildSystemPrompt(context, {
       ruleSystem: this.plugin.settings.aiRuleSystem,
       campaignTone: this.plugin.settings.aiCampaignTone,
@@ -942,7 +952,7 @@ export async function describeScene(plugin: CodexPlugin, file: TFile): Promise<v
   const content = await plugin.app.vault.read(file);
   const hideSpinner = showSpinner('Writing scene description…');
 
-  const context = plugin.contextAssembler.assemble(content);
+  const context = await assemblePromptContext(plugin, content);
   const systemPrompt = buildSystemPrompt(context, {
     ruleSystem: plugin.settings.aiRuleSystem,
     campaignTone: plugin.settings.aiCampaignTone,
@@ -991,7 +1001,7 @@ export async function extractEntities(plugin: CodexPlugin, file: TFile): Promise
   const content = await plugin.app.vault.read(file);
   const hideSpinner = showSpinner('Scanning for entities…');
 
-  const context = plugin.contextAssembler.assemble(content);
+  const context = await assemblePromptContext(plugin, content);
   const systemPrompt = buildSystemPrompt(context, {
     ruleSystem: plugin.settings.aiRuleSystem,
     campaignTone: plugin.settings.aiCampaignTone,
@@ -1359,11 +1369,11 @@ async function assembleArcContext(
       name: e.name,
       type: e.type,
       frontmatter: e.frontmatter,
-      bodyPreview: e.bodyPreview,
+      bodyPreview: e.bodyExcerpt || e.bodyPreview,
     }));
 
   const worldRules = registry.getByType('world')
-    .map(w => `## ${w.name}\n${w.bodyPreview}`);
+    .map(w => `## ${w.name}\n${w.bodyExcerpt || w.bodyPreview}`);
 
   return {
     adventure: { name: adventureName, content: adventureContent },
@@ -1663,7 +1673,9 @@ tags: [arc-review]
 function requireProvider(plugin: CodexPlugin) {
   const provider = plugin.getProvider();
   if (!provider) {
-    new Notice('Codex: configure an AI provider in settings first.');
+    new Notice(
+      'Codex: configure an AI provider in settings first.',
+    );
     return null;
   }
   return provider;
@@ -1674,23 +1686,23 @@ function requireProvider(plugin: CodexPlugin) {
  * Call the returned function to dismiss it.
  */
 function showSpinner(message: string): () => void {
-  const overlay = document.createElement('div');
+  const overlay = getActiveDocument().createElement('div');
   overlay.className = 'codex-spinner-overlay';
 
-  const card = document.createElement('div');
+  const card = getActiveDocument().createElement('div');
   card.className = 'codex-spinner-card';
 
-  const spinner = document.createElement('div');
+  const spinner = getActiveDocument().createElement('div');
   spinner.className = 'codex-spinner';
   card.appendChild(spinner);
 
-  const text = document.createElement('div');
+  const text = getActiveDocument().createElement('div');
   text.className = 'codex-spinner-text';
   text.textContent = message;
   card.appendChild(text);
 
   overlay.appendChild(card);
-  document.body.appendChild(overlay);
+  getActiveDocument().body.appendChild(overlay);
 
   return () => overlay.remove();
 }

@@ -1,5 +1,6 @@
 import type { Entity, EntityType } from '@codex-ide/core';
-import type { EntityRegistry } from '@codex-ide/core';
+import { isEntityType, type EntityRegistry } from '@codex-ide/core';
+import { getActiveDocument, getActiveWindow } from '../util/dom';
 
 const TYPE_ICONS: Record<string, string> = {
   npc: '\u{1F464}',
@@ -20,6 +21,27 @@ const TYPE_ICONS: Record<string, string> = {
 
 const MAX_ITEMS = 8;
 
+const SCOPE_DIRECTIVES = [
+  'recipe', 'npc-at-location', 'advance-plots', 'add-arc', 'add-location',
+  'npc', 'session', 'world', 'recent', 'all',
+  'location', 'faction', 'quest', 'adventure', 'item',
+] as const;
+
+const RECIPE_SKILLS = [
+  { id: 'npc-at-location', detail: 'create an NPC and wire into plots' },
+  { id: 'advance-plots', detail: 'update plots from a session' },
+  { id: 'add-arc', detail: 'create an arc from a session' },
+  { id: 'add-location', detail: 'create a location and wiki-link it in' },
+] as const;
+
+interface SuggestRow {
+  kind: 'scope' | 'entity';
+  label: string;
+  insert: string;
+  detail: string;
+  entity?: Entity;
+}
+
 interface TriggerState {
   type: '@' | '[[';
   start: number;
@@ -30,7 +52,7 @@ export class ChatSuggest {
   private textarea: HTMLTextAreaElement;
   private registry: EntityRegistry;
   private dropdownEl: HTMLDivElement | null = null;
-  private items: Entity[] = [];
+  private items: SuggestRow[] = [];
   private selectedIndex = 0;
   private trigger: TriggerState | null = null;
 
@@ -45,7 +67,7 @@ export class ChatSuggest {
     this.handleInput = () => this.onInput();
     this.handleKeydown = (e: KeyboardEvent) => this.onKeydown(e);
     this.handleBlur = () => {
-      setTimeout(() => this.dismiss(), 150);
+      getActiveWindow().setTimeout(() => this.dismiss(), 150);
     };
 
     this.textarea.addEventListener('input', this.handleInput);
@@ -76,7 +98,86 @@ export class ChatSuggest {
 
     this.trigger = trigger;
 
-    let query = trigger.query;
+    const query = trigger.query;
+    if (trigger.type === '@') {
+      const firstWord = query.split(/\s+/)[0]?.toLowerCase() ?? '';
+      const extra = this.registry.getCustomTypes();
+      const scopes = new Set([...SCOPE_DIRECTIVES, ...extra.map(t => t.toLowerCase())]);
+      if (firstWord && scopes.has(firstWord) && /\s/.test(query) && firstWord !== 'recipe') {
+        const typeFilter = isEntityType(firstWord, extra) ? firstWord as EntityType : undefined;
+        if (!typeFilter) {
+          this.dismiss();
+          return;
+        }
+        const rest = query.slice(firstWord.length).trimStart();
+        const entities = this.registry.suggest(rest, typeFilter).slice(0, MAX_ITEMS);
+        this.items = entities.map(entity => ({
+          kind: 'entity' as const,
+          label: entity.name,
+          insert: `[[${entity.name}]]`,
+          detail: entity.type,
+          entity,
+        }));
+        this.selectedIndex = 0;
+        if (this.items.length === 0) {
+          this.dismiss();
+          return;
+        }
+        this.showDropdown();
+        return;
+      }
+    }
+
+    const rows: SuggestRow[] = [];
+
+    if (trigger.type === '@') {
+      const recipeFollow = query.match(/^recipe[:\s]+(.*)$/i);
+      if (recipeFollow) {
+        const q = recipeFollow[1].trim().toLowerCase();
+        for (const skill of RECIPE_SKILLS) {
+          if (q && !skill.id.startsWith(q) && !skill.id.includes(q)) continue;
+          rows.push({
+            kind: 'scope',
+            label: `@recipe ${skill.id}`,
+            insert: `@recipe ${skill.id}`,
+            detail: skill.detail,
+          });
+        }
+        this.items = rows.slice(0, MAX_ITEMS);
+        this.selectedIndex = 0;
+        if (this.items.length === 0) {
+          this.dismiss();
+          return;
+        }
+        this.showDropdown();
+        return;
+      }
+
+      const extra = this.registry.getCustomTypes();
+      const scopes = [...SCOPE_DIRECTIVES, ...extra.map(t => t.toLowerCase())];
+      const seen = new Set<string>();
+      const q = query.toLowerCase();
+      for (const scope of scopes) {
+        if (seen.has(scope)) continue;
+        if (q && !scope.startsWith(q) && !`@${scope}`.startsWith(q)) continue;
+        seen.add(scope);
+        rows.push({
+          kind: 'scope',
+          label: `@${scope}`,
+          insert: `@${scope}`,
+          detail: scope === 'all' ? 'entire index'
+            : scope === 'recent' ? 'latest sessions'
+            : scope === 'recipe' ? 'campaign recipe skills'
+            : scope === 'npc-at-location' ? 'recipe: NPC into plots'
+            : scope === 'advance-plots' ? 'recipe: update plots from a session'
+            : scope === 'add-arc' ? 'recipe: create an arc from a session'
+            : scope === 'add-location' ? 'recipe: create a location'
+            : `${scope} notes`,
+        });
+      }
+    }
+
+    let entityQuery = query;
     let typeFilter: EntityType | undefined;
     if (query.includes(':')) {
       const colonIdx = query.indexOf(':');
@@ -84,11 +185,22 @@ export class ChatSuggest {
       const testResults = this.registry.suggest('', possibleType as EntityType);
       if (testResults.length > 0 || possibleType === 'npc') {
         typeFilter = possibleType as EntityType;
-        query = query.slice(colonIdx + 1);
+        entityQuery = query.slice(colonIdx + 1);
       }
     }
 
-    this.items = this.registry.suggest(query, typeFilter).slice(0, MAX_ITEMS);
+    const entities = this.registry.suggest(entityQuery, typeFilter).slice(0, MAX_ITEMS);
+    for (const entity of entities) {
+      rows.push({
+        kind: 'entity',
+        label: entity.name,
+        insert: trigger.type === '@' ? `[[${entity.name}]]` : `[[${entity.name}]]`,
+        detail: entity.type,
+        entity,
+      });
+    }
+
+    this.items = rows.slice(0, MAX_ITEMS);
     this.selectedIndex = 0;
 
     if (this.items.length === 0) {
@@ -124,7 +236,7 @@ export class ChatSuggest {
 
   private showDropdown(): void {
     if (!this.dropdownEl) {
-      this.dropdownEl = document.createElement('div');
+      this.dropdownEl = getActiveDocument().createElement('div');
       this.dropdownEl.classList.add('codex-chat-suggest');
       this.textarea.parentElement!.appendChild(this.dropdownEl);
     }
@@ -132,19 +244,21 @@ export class ChatSuggest {
     this.dropdownEl.empty();
 
     for (let i = 0; i < this.items.length; i++) {
-      const entity = this.items[i];
+      const item = this.items[i];
       const row = this.dropdownEl.createDiv({
         cls: `codex-chat-suggest-item${i === this.selectedIndex ? ' is-selected' : ''}`,
       });
 
       row.createSpan({
         cls: 'codex-chat-suggest-icon',
-        text: TYPE_ICONS[entity.type] ?? '\u{1F4C4}',
+        text: item.kind === 'scope'
+          ? '@'
+          : TYPE_ICONS[item.entity?.type ?? ''] ?? '\u{1F4C4}',
       });
 
       const info = row.createDiv({ cls: 'codex-chat-suggest-info' });
-      info.createSpan({ cls: 'codex-chat-suggest-name', text: entity.name });
-      info.createSpan({ cls: 'codex-chat-suggest-type', text: entity.type });
+      info.createSpan({ cls: 'codex-chat-suggest-name', text: item.label });
+      info.createSpan({ cls: 'codex-chat-suggest-type', text: item.detail });
 
       row.addEventListener('mousedown', (e) => {
         e.preventDefault();
@@ -212,20 +326,12 @@ export class ChatSuggest {
   private acceptSelection(): void {
     if (!this.trigger || this.items.length === 0) return;
 
-    const entity = this.items[this.selectedIndex];
+    const item = this.items[this.selectedIndex];
     const value = this.textarea.value;
     const cursorPos = this.textarea.selectionStart;
 
-    let insertText: string;
-    let replaceStart: number;
-
-    if (this.trigger.type === '[[') {
-      insertText = `[[${entity.name}]]`;
-      replaceStart = this.trigger.start;
-    } else {
-      insertText = entity.name;
-      replaceStart = this.trigger.start;
-    }
+    const insertText = item.insert;
+    const replaceStart = this.trigger.start;
 
     const before = value.slice(0, replaceStart);
     const after = value.slice(cursorPos);

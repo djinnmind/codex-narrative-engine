@@ -1,6 +1,6 @@
 import Fuse from 'fuse.js';
 import type { Entity, EntityType, LinkReference } from '../types';
-import { parseFrontmatter, bodyPreview } from '../parser/frontmatter';
+import { parseFrontmatter, bodyPreview, bodyExcerpt } from '../parser/frontmatter';
 import { extractLinks } from '../parser/link-extractor';
 import { extractStatblocks } from '../parser/statblock-parser';
 import { stripLeadingArticle } from '../util/articles';
@@ -58,6 +58,7 @@ export class EntityRegistry {
       frontmatter: parsed.frontmatter,
       links,
       bodyPreview: bodyPreview(parsed.bodyContent),
+      bodyExcerpt: bodyExcerpt(parsed.bodyContent),
       statblock,
     };
 

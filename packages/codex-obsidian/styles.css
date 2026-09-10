@@ -569,6 +569,10 @@
 .codex-chat-context-hint {
   font-size: var(--font-smallest);
   color: var(--text-faint);
+  max-width: 70%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .codex-chat-send-btn {
@@ -835,22 +839,82 @@
   white-space: pre-wrap;
 }
 
+/* ===== Resizable modals (diff review, recipe plan) ===== */
+
+.modal.codex-resizable-modal {
+  width: min(92vw, 960px);
+  height: min(85vh, 720px);
+  max-width: 96vw;
+  max-height: 92vh;
+  min-width: 480px;
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+.modal.codex-resizable-modal .modal-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal.codex-resizable-modal.is-resizing {
+  user-select: none;
+}
+
+.codex-modal-resize-handle {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  z-index: 20;
+  background:
+    linear-gradient(135deg, transparent 55%, var(--text-faint) 55%, var(--text-faint) 62%, transparent 62%),
+    linear-gradient(135deg, transparent 70%, var(--text-faint) 70%, var(--text-faint) 77%, transparent 77%),
+    linear-gradient(135deg, transparent 85%, var(--text-faint) 85%, var(--text-faint) 92%, transparent 92%);
+}
+
+.codex-modal-resize-handle:hover {
+  background:
+    linear-gradient(135deg, transparent 55%, var(--text-muted) 55%, var(--text-muted) 62%, transparent 62%),
+    linear-gradient(135deg, transparent 70%, var(--text-muted) 70%, var(--text-muted) 77%, transparent 77%),
+    linear-gradient(135deg, transparent 85%, var(--text-muted) 85%, var(--text-muted) 92%, transparent 92%);
+}
+
 /* ===== Diff Review Modal ===== */
 
 .codex-diff-modal {
-  max-width: 800px;
-  width: 90vw;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  max-width: none;
+  width: auto;
+}
+
+.codex-diff-modal > h3,
+.codex-recipe-modal > h3 {
+  flex-shrink: 0;
 }
 
 .codex-diff-summary {
   color: var(--text-muted);
   font-size: var(--font-ui-small);
   margin-bottom: 12px;
+  flex-shrink: 0;
 }
 
 .codex-diff-body {
-  max-height: 500px;
-  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
   border: 1px solid var(--background-modifier-border);
   border-radius: 6px;
   background: var(--background-primary);
@@ -861,42 +925,149 @@
 }
 
 .codex-diff-line {
-  padding: 1px 12px;
+  display: flex;
+  gap: 0;
+  padding: 0;
   white-space: pre-wrap;
-  word-break: break-all;
+  overflow-wrap: anywhere;
+  border-left: 3px solid transparent;
+}
+
+.codex-diff-gutter {
+  flex: 0 0 1.6em;
+  text-align: center;
+  user-select: none;
+  font-weight: 700;
+}
+
+.codex-diff-text {
+  flex: 1;
+  min-width: 0;
+  padding: 1px 10px 1px 4px;
 }
 
 .codex-diff-line-add {
-  background: hsla(var(--color-green-hsl), 0.15);
-  color: var(--text-normal);
+  background-color: rgba(46, 160, 67, 0.18);
+  border-left-color: #3fb950;
+}
+
+.codex-diff-line-add .codex-diff-gutter {
+  color: #3fb950;
 }
 
 .codex-diff-line-remove {
-  background: hsla(var(--color-red-hsl), 0.15);
-  color: var(--text-normal);
-  text-decoration: line-through;
-  opacity: 0.7;
+  background-color: rgba(248, 81, 73, 0.18);
+  border-left-color: #f85149;
+}
+
+.codex-diff-line-remove .codex-diff-gutter {
+  color: #f85149;
+}
+
+.theme-light .codex-diff-line-add {
+  background-color: rgba(26, 127, 55, 0.14);
+  border-left-color: #1a7f37;
+}
+
+.theme-light .codex-diff-line-add .codex-diff-gutter {
+  color: #1a7f37;
+}
+
+.theme-light .codex-diff-line-remove {
+  background-color: rgba(207, 34, 46, 0.12);
+  border-left-color: #cf222e;
+}
+
+.theme-light .codex-diff-line-remove .codex-diff-gutter {
+  color: #cf222e;
 }
 
 .codex-diff-line-context {
   color: var(--text-muted);
 }
 
+.codex-diff-line-context .codex-diff-gutter {
+  color: var(--text-faint);
+}
+
+.codex-diff-stat-add {
+  color: #3fb950;
+  font-variant-numeric: tabular-nums;
+}
+
+.codex-diff-stat-remove {
+  color: #f85149;
+  font-variant-numeric: tabular-nums;
+}
+
+.theme-light .codex-diff-stat-add {
+  color: #1a7f37;
+}
+
+.theme-light .codex-diff-stat-remove {
+  color: #cf222e;
+}
+
+.codex-diff-expand-bar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 4px 8px;
+  background: var(--background-secondary);
+  border-bottom: 1px solid var(--background-modifier-border);
+  flex-shrink: 0;
+}
+
+.codex-diff-expand-all {
+  font-size: var(--font-smallest);
+  color: var(--text-muted);
+  background: transparent;
+  box-shadow: none;
+  padding: 2px 6px;
+}
+
+.codex-diff-expand-all:hover {
+  color: var(--text-normal);
+}
+
 .codex-diff-collapsed {
+  display: block;
+  width: 100%;
   padding: 4px 12px;
   text-align: center;
   color: var(--text-faint);
   font-size: var(--font-smallest);
   font-style: italic;
   background: var(--background-secondary);
+  border: none;
   border-top: 1px solid var(--background-modifier-border);
   border-bottom: 1px solid var(--background-modifier-border);
+  border-radius: 0;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.codex-diff-collapsed:hover {
+  color: var(--text-muted);
+  background: var(--background-modifier-hover);
+}
+
+.codex-diff-expanded-lines.is-hidden {
+  display: none;
 }
 
 .codex-diff-actions {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
   gap: 8px;
+  flex-shrink: 0;
+  padding-bottom: 8px;
+}
+
+.codex-diff-resize-hint {
+  margin-right: auto;
+  color: var(--text-faint);
+  font-size: var(--font-smallest);
 }
 
 /* ===== Revise Selection Modal ===== */
@@ -993,6 +1164,103 @@
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.codex-recipe-modal {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  max-width: none;
+}
+
+.codex-recipe-review {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+}
+
+.codex-recipe-review > h3,
+.codex-recipe-review .codex-extract-summary {
+  flex-shrink: 0;
+}
+
+.codex-recipe-review-split {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.codex-recipe-review-list {
+  width: 280px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background: var(--background-secondary);
+}
+
+.codex-recipe-review-file {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.codex-recipe-review-file:last-child {
+  border-bottom: none;
+}
+
+.codex-recipe-review-file:hover {
+  background: var(--background-modifier-hover);
+}
+
+.codex-recipe-review-file.is-selected {
+  background: var(--background-modifier-hover);
+  box-shadow: inset 3px 0 0 var(--interactive-accent);
+}
+
+.codex-recipe-review-file input[type="checkbox"] {
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+.codex-recipe-review-file-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.codex-recipe-review-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.codex-recipe-review-main .codex-diff-body {
+  margin-bottom: 0;
+}
+
+.codex-recipe-modal .codex-extract-summary {
+  flex-shrink: 0;
+}
+
+.codex-recipe-modal .codex-extract-list {
+  flex: 1 1 auto;
+  max-height: none;
+  min-height: 0;
+}
+
+.codex-recipe-modal .codex-extract-actions {
+  flex-shrink: 0;
+  padding-bottom: 8px;
 }
 
 /* ===== Generate Entity — Section Picker ===== */

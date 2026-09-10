@@ -24,6 +24,7 @@ import {
 } from './commands/ai-commands';
 import { CodexSettingTab, CodexSettings, DEFAULT_SETTINGS, getProviderConfig } from './settings';
 import { createProvider } from './ai/provider-factory';
+import { getActiveDocument } from './util/dom';
 
 export default class CodexPlugin extends Plugin {
   registry!: EntityRegistry;
@@ -37,7 +38,7 @@ export default class CodexPlugin extends Plugin {
   private teardownGlobalHover: (() => void) | null = null;
 
   async onload(): Promise<void> {
-    console.log('Codex plugin v0.2.0 loading');
+    console.log('Codex plugin v0.4.1 loading');
     await this.loadSettings();
 
     this.registry = new EntityRegistry();
@@ -95,7 +96,6 @@ export default class CodexPlugin extends Plugin {
     this.addCommand({
       id: 'reindex-vault',
       name: 'Re-index Vault',
-      hotkeys: [{ modifiers: ['Mod', 'Shift'], key: 'r' }],
       callback: async () => {
         this.registry.clear();
         await this.vaultAdapter.fullIndex();
@@ -108,13 +108,13 @@ export default class CodexPlugin extends Plugin {
     this.addCommand({
       id: 'open-lore-chat',
       name: 'Open Lore Chat',
-      hotkeys: [{ modifiers: ['Mod', 'Shift'], key: 'l' }],
       callback: () => this.activateChatPanel(),
     });
 
     registerRenameCommand(this);
     registerCreateEntityCommand(this);
     registerAICommands(this);
+
 
     this.addCommand({
       id: 'accept-suggestions',
@@ -127,6 +127,7 @@ export default class CodexPlugin extends Plugin {
       name: 'Reject AI Suggestions',
       callback: () => rejectAllSuggestions(this),
     });
+
 
     // Index vault when ready; also ensure template files exist
     this.app.workspace.onLayoutReady(async () => {
@@ -147,6 +148,7 @@ export default class CodexPlugin extends Plugin {
     );
 
     this.addSettingTab(new CodexSettingTab(this.app, this));
+
 
     // Editor context menu — "Codex AI" submenu + suggestion review items
     this.registerEvent(
@@ -328,11 +330,11 @@ export default class CodexPlugin extends Plugin {
 
   applyStatblockWidth(): void {
     const width = this.settings.statblockWidth ?? 600;
-    document.body.style.setProperty('--codex-statblock-width', `${width}px`);
+    getActiveDocument().body.style.setProperty('--codex-statblock-width', `${width}px`);
   }
 
   private removeStatblockStyle(): void {
-    document.body.style.removeProperty('--codex-statblock-width');
+    getActiveDocument().body.style.removeProperty('--codex-statblock-width');
   }
 
   private originalOpenLinkText: ((...args: any[]) => Promise<void>) | null = null;
@@ -426,6 +428,7 @@ export default class CodexPlugin extends Plugin {
 
   getProvider(): LLMProvider | null {
     if (this.provider) return this.provider;
+
 
     const config = getProviderConfig(this.settings);
     const needsKey = ['gemini', 'openai', 'anthropic'].includes(config.type);

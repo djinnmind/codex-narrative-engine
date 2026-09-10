@@ -60,7 +60,8 @@ export class VaultAdapter {
   }
 
   private shouldIgnore(path: string): boolean {
-    const ignoredPrefixes = ['.obsidian/', '.trash/', '.codex/'];
+    const configDir = this.app.vault.configDir || '.obsidian';
+    const ignoredPrefixes = [`${configDir}/`, '.trash/', '.codex/'];
     return ignoredPrefixes.some(prefix => path.startsWith(prefix));
   }
 }
