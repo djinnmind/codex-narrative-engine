@@ -38,7 +38,7 @@ export default class CodexPlugin extends Plugin {
   private teardownGlobalHover: (() => void) | null = null;
 
   async onload(): Promise<void> {
-    console.log('Codex plugin v0.4.1 loading');
+    console.log(`Codex plugin v${this.manifest.version} loading`);
     await this.loadSettings();
 
     this.registry = new EntityRegistry();
