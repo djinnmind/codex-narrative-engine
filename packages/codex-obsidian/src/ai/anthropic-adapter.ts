@@ -60,7 +60,7 @@ export class AnthropicAdapter implements LLMProvider {
     }
 
     const data = response.json;
-    const content = data?.content?.[0]?.text ?? '';
+    const content = extractAnthropicText(data);
     const usage = data?.usage;
 
     return {
@@ -111,4 +111,15 @@ export class AnthropicAdapter implements LLMProvider {
       };
     }
   }
+}
+
+function extractAnthropicText(data: {
+  content?: Array<{ type?: string; text?: string }>;
+}): string {
+  const parts = data?.content;
+  if (!Array.isArray(parts)) return '';
+  return parts
+    .filter(p => p && p.type === 'text' && typeof p.text === 'string')
+    .map(p => p.text as string)
+    .join('');
 }

@@ -46,12 +46,17 @@ export class GeminiAdapter implements LLMProvider {
       ? { parts: [{ text: request.systemPrompt }] }
       : undefined;
 
+    const generationConfig: Record<string, unknown> = {
+      temperature: request.temperature ?? 0.8,
+      maxOutputTokens: request.maxTokens ?? 4096,
+    };
+    if (request.jsonMode) {
+      generationConfig.responseMimeType = 'application/json';
+    }
+
     const body: Record<string, unknown> = {
       contents,
-      generationConfig: {
-        temperature: request.temperature ?? 0.8,
-        maxOutputTokens: request.maxTokens ?? 4096,
-      },
+      generationConfig,
     };
     if (systemInstruction) {
       body.systemInstruction = systemInstruction;
@@ -73,7 +78,7 @@ export class GeminiAdapter implements LLMProvider {
       }
 
       const data = response.json;
-      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+      const text = extractGeminiText(data);
       const usage = data?.usageMetadata;
 
       return {
@@ -138,4 +143,15 @@ export class GeminiAdapter implements LLMProvider {
     }
     return contents;
   }
+}
+
+function extractGeminiText(data: {
+  candidates?: Array<{ content?: { parts?: Array<{ text?: string; thought?: boolean }> } }>;
+}): string {
+  const parts = data?.candidates?.[0]?.content?.parts;
+  if (!Array.isArray(parts)) return '';
+  return parts
+    .filter(p => p && typeof p.text === 'string' && !p.thought)
+    .map(p => p.text)
+    .join('');
 }

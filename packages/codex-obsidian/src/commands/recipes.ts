@@ -107,16 +107,54 @@ async function assembleRecipeContext(plugin: CodexPlugin, query: string, seedPat
   };
 }
 
+const PLANNER_MODE = `PLANNER MODE:
+This reply must be a single JSON object with "title" and "steps".
+No YAML frontmatter. No markdown. No prose before or after the object.`;
+
 async function chatJson(plugin: CodexPlugin, systemPrompt: string, user: string): Promise<string> {
   const provider = requireProvider(plugin);
   if (!provider) throw new Error('No AI provider');
   const response = await provider.chat({
-    systemPrompt,
+    systemPrompt: `${systemPrompt}\n\n${PLANNER_MODE}`,
     messages: [{ role: 'user', content: user }],
     temperature: 0.2,
-    maxTokens: 1024,
+    maxTokens: 4096,
+    jsonMode: true,
   });
   return response.content;
+}
+
+function recipePlanError(raw: string, err: unknown): Error {
+  const base = err instanceof Error ? err.message : 'Recipe plan failed';
+  if (!/No JSON object/i.test(base)) {
+    return err instanceof Error ? err : new Error(base);
+  }
+  const snippet = raw.replace(/\s+/g, ' ').trim().slice(0, 160);
+  return new Error(
+    snippet ? `${base}. Model said: “${snippet}”` : `${base} (empty model reply).`,
+  );
+}
+
+async function requestRecipePlan(
+  plugin: CodexPlugin,
+  systemPrompt: string,
+  user: string,
+): Promise<RecipePlan> {
+  let raw = await chatJson(plugin, systemPrompt, user);
+  try {
+    return parseRecipePlan(raw);
+  } catch {
+    raw = await chatJson(
+      plugin,
+      systemPrompt,
+      `Your last reply was not a JSON object. Return ONLY this shape:\n{"title":"short title","steps":[{"path":"folder/Note.md","action":"patch","summary":"one sentence"}]}\nNo other text.`,
+    );
+    try {
+      return parseRecipePlan(raw);
+    } catch (err) {
+      throw recipePlanError(raw, err);
+    }
+  }
 }
 
 async function chatMarkdown(plugin: CodexPlugin, systemPrompt: string, user: string): Promise<string> {
@@ -632,7 +670,7 @@ async function runAddArc(
       .map(e => `    { "path": "${e.filePath}", "action": "patch", "summary": "wiki-link the new arc" }`)
       .join(',\n');
 
-    const raw = await chatJson(plugin, systemPrompt, `Plan a campaign edit. Do not write file bodies.
+    const plan = await requestRecipePlan(plugin, systemPrompt, `Plan a campaign edit. Do not write file bodies.
 
 Create a NEW arc (type: arc) grounded in this session. Do not rewrite existing arcs.
 
@@ -660,7 +698,6 @@ Rules:
 - Do not invent extra files
 - Summaries are one sentence`);
 
-    const plan = parseRecipePlan(raw);
     for (const step of plan.steps) {
       if (step.action !== 'create') continue;
       const safe = uniqueCreatePath(plugin, step.path);
@@ -750,7 +787,7 @@ async function runAddLocation(
       .map(e => `    { "path": "${e.filePath}", "action": "patch", "summary": "wiki-link the new location from ${e.name}" }`)
       .join(',\n');
 
-    const raw = await chatJson(plugin, systemPrompt, `Plan a campaign edit. Do not write file bodies.
+    const plan = await requestRecipePlan(plugin, systemPrompt, `Plan a campaign edit. Do not write file bodies.
 
 Create a NEW location (type: location). Do not rewrite existing places.
 
@@ -777,7 +814,6 @@ Rules:
 - Do not patch NPC notes (mention them in the new location instead)
 - Summaries are one sentence`);
 
-    const plan = parseRecipePlan(raw);
     const allowedPatch = new Set(patchable.map(e => e.filePath));
     plan.steps = plan.steps.filter(s =>
       s.action === 'create' || (s.action === 'patch' && allowedPatch.has(s.path)),
@@ -866,7 +902,7 @@ async function runNpcAtLocation(
     ).join(',\n');
     const plotNames = plots.map(p => `[[${p.name}]]`).join(' and ');
 
-    const raw = await chatJson(plugin, systemPrompt, `Plan a campaign edit. Do not write file bodies.
+    const plan = await requestRecipePlan(plugin, systemPrompt, `Plan a campaign edit. Do not write file bodies.
 
 Location: [[${loc.name}]] (${loc.filePath})
 Plots:
@@ -893,7 +929,6 @@ Rules:
 - Do not invent extra files
 - Summaries are one sentence`);
 
-    const plan = parseRecipePlan(raw);
     for (const step of plan.steps) {
       if (step.action !== 'create') continue;
       const safe = uniqueCreatePath(plugin, step.path);
@@ -959,7 +994,9 @@ async function runAdvancePlots(plugin: CodexPlugin, session: Entity): Promise<st
       language: plugin.settings.aiLanguage,
     });
     const plotLines = plots.map(p => `- ${p.filePath} ([[${p.name}]], ${p.type})`).join('\n');
-    const raw = await chatJson(plugin, systemPrompt, `Plan patches so plot notes match what this session already established. Do not write file bodies.
+    let plan: RecipePlan;
+    try {
+      plan = await requestRecipePlan(plugin, systemPrompt, `Plan patches so plot notes match what this session already established. Do not write file bodies.
 
 Session: [[${session.name}]] (${session.filePath})
 Linked plots:
@@ -974,13 +1011,21 @@ Return ONLY JSON:
 }
 
 Rules:
-- Only patch existing linked plot paths listed above (and optionally one NPC whose status the session changed)
+- Include EVERY linked plot path listed above — do not skip one because the session only foreshadowed it
+- Optionally add one NPC whose status the session changed
 - action must be "patch" — do not create files
 - Do not mark living NPCs dead, or list dead NPCs as present
-- Summaries are one sentence
-- Skip a plot if the session did not change it`);
-
-    const plan = parseRecipePlan(raw);
+- Summaries are one sentence`);
+    } catch {
+      plan = {
+        title: `Advance plots from ${session.name}`,
+        steps: plots.slice(0, 8).map(p => ({
+          path: p.filePath,
+          action: 'patch' as const,
+          summary: `Update [[${p.name}]] to match [[${session.name}]]`,
+        })),
+      };
+    }
     hide();
     const allowed = new Set(plots.map(p => p.filePath));
     plan.steps = plan.steps.filter(s => s.action === 'patch' && (

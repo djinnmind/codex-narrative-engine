@@ -57,16 +57,28 @@ export class OpenAIAdapter implements LLMProvider {
       headers['Authorization'] = `Bearer ${this.apiKey}`;
     }
 
+    const payload: Record<string, unknown> = {
+      model: this.model,
+      messages,
+    };
+    const maxOut = request.maxTokens ?? 4096;
+    if (this.id === 'openai' || usesCompletionTokens(this.model)) {
+      payload.max_completion_tokens = maxOut;
+    } else {
+      payload.max_tokens = maxOut;
+    }
+    if (!usesCompletionTokens(this.model)) {
+      payload.temperature = request.temperature ?? 0.8;
+    }
+    if (request.jsonMode && this.id === 'openai') {
+      payload.response_format = { type: 'json_object' };
+    }
+
     const response = await requestUrl({
       url,
       method: 'POST',
       headers,
-      body: JSON.stringify({
-        model: this.model,
-        messages,
-        temperature: request.temperature ?? 0.8,
-        max_tokens: request.maxTokens ?? 4096,
-      }),
+      body: JSON.stringify(payload),
       throw: false,
     });
 
@@ -76,7 +88,7 @@ export class OpenAIAdapter implements LLMProvider {
     }
 
     const data = response.json;
-    const content = data?.choices?.[0]?.message?.content ?? '';
+    const content = extractOpenAIText(data?.choices?.[0]?.message);
     const usage = data?.usage;
 
     return {
@@ -127,4 +139,25 @@ export class OpenAIAdapter implements LLMProvider {
       };
     }
   }
+}
+
+function usesCompletionTokens(model: string): boolean {
+  return /^(gpt-5|o[0-9]|chatgpt-)/i.test(model);
+}
+
+function extractOpenAIText(message: {
+  content?: unknown;
+  refusal?: string;
+} | undefined): string {
+  if (!message) return '';
+  const { content } = message;
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content
+      .filter((p): p is { type?: string; text?: string } => !!p && typeof p === 'object')
+      .filter(p => p.type !== 'reasoning' && typeof p.text === 'string')
+      .map(p => p.text as string)
+      .join('');
+  }
+  return typeof message.refusal === 'string' ? message.refusal : '';
 }

@@ -39,4 +39,9 @@ describe('parseRecipePlan', () => {
     expect(() => parseRecipePlan('{ "title": "x", "steps": [{ "path": "../x.md", "action": "create", "summary": "no" }] }'))
       .toThrow(/no valid steps/i);
   });
+
+  it('throws when the model wrote prose instead of JSON', () => {
+    expect(() => parseRecipePlan('I can help update The Lockdown after Session 5.'))
+      .toThrow(/No JSON object in recipe plan/);
+  });
 });

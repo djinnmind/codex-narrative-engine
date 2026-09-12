@@ -30,6 +30,8 @@ export interface ChatRequest {
   context?: VaultContext;
   temperature?: number;
   maxTokens?: number;
+  /** Ask the provider for a JSON object (Gemini responseMimeType, etc.). */
+  jsonMode?: boolean;
 }
 
 export interface ChatResponse {
