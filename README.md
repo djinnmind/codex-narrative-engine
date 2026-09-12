@@ -1,13 +1,17 @@
 # Codex Narrative Engine
 
-An [Obsidian](https://obsidian.md) plugin that adds narrative intelligence to your TTRPG campaign vault. Codex indexes your world-building notes, surfaces broken links, detects logical contradictions in your story, and brings AI assistance directly into your creative workflow — so you can focus on running the game instead of auditing your lore.
+You built the campaign in Obsidian. Codex compiles it.
+
+An [Obsidian](https://obsidian.md) plugin for TTRPG vaults: it indexes your notes, lints dead links and contradictions, then runs **recipes** that plan which files to change. You see the diffs before anything is written.
+
+**75-second demo** (Session 5 → advance plots): https://youtu.be/YORChVk6fSY
 
 ## Quick Start
 
 1. **Install** from [Obsidian Community Plugins](#from-obsidian-community-plugins) (or [BRAT](#via-brat-prereleases) / [manually](docs/getting-started.md#manual--sideload)).
 2. **Add frontmatter** to your notes — at minimum `type: npc`, `type: location`, etc. — so Codex can index them.
 3. **Open the warnings panel** (ribbon icon or `Codex: Open narrative warnings`) to see dead links and state conflicts.
-4. **Set up an AI provider** in Settings > Codex Narrative Engine > AI provider to unlock Lore Chat and AI-powered generation.
+4. **Set up an AI provider** in Settings > Codex Narrative Engine > AI provider to unlock Lore Chat and recipes.
 
 ## Features
 
@@ -24,7 +28,11 @@ An [Obsidian](https://obsidian.md) plugin that adds narrative intelligence to yo
 
 All AI features use your own API key — no subscription required. Supports **Google Gemini**, **OpenAI**, **Anthropic (Claude)**, **Ollama**, **LM Studio**, and any **OpenAI-compatible** endpoint.
 
-- **Lore Chat** — a sidebar conversation panel grounded in your campaign lore, with edit / regenerate / save-all-as-notes.
+- **Lore Chat** — a sidebar conversation panel grounded in your campaign lore. Type `@` to mention entities or invoke a recipe (`@recipe` lists them).
+- **Recipes** — constrained campaign edits from Lore Chat. Codex plans the files, you check the boxes, then review a unified diff per file and apply only what you want.
+  - `@advance-plots from [[Session 5]]` — patch linked adventures, quests, and arcs so they match the session.
+  - `@npc-at-location at [[Blackmoss Landing]] into [[The Lockdown]]` — create an NPC at a place and wiki-link them into the plot.
+  - `@add-arc` / `@add-location` — create a new arc or location note and wire it from the session or parent you named.
 - **Enhance Note** — expands a stub entity into a fully fleshed-out note while preserving existing content.
 - **Generate Entity** — creates a new NPC, location, item, or other entity from a short description, complete with frontmatter and optional stat block.
 - **Describe Scene** — generates atmospheric read-aloud text for a location or session scene.

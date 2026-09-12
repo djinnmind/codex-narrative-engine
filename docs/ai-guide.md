@@ -126,6 +126,22 @@ Lore Chat is a sidebar conversation panel where you can ask questions about your
 - Reference entities by name for best results — "Tell me about [[Kira Ashwood]]'s relationship with [[The Silver Order]]" gives the AI more context than "tell me about the merchant."
 - Use it for brainstorming: "Suggest three plot hooks involving the missing artifact and the thieves' guild."
 - Ask consistency questions: "Are there any contradictions between what happened in Session 12 and Borin's backstory?"
+- Type `@` for entity mentions, or `@recipe` to list campaign recipes.
+
+## Recipes
+
+Recipes are Lore Chat skills, not Command Palette commands. They plan a campaign edit, show you the file list, then open a unified diff per file. Nothing is written until you apply.
+
+Type `@recipe` in Lore Chat, or invoke one directly:
+
+| Recipe | Example |
+|--------|---------|
+| `@advance-plots` | `@advance-plots from [[Session 5]]` |
+| `@npc-at-location` | `@npc-at-location at [[Blackmoss Landing]] into [[The Lockdown]]` |
+| `@add-arc` | `@add-arc from [[Session 5]]` |
+| `@add-location` | `@add-location under [[Blackmoss Landing]]` |
+
+Use exact `[[wiki-links]]` for the notes you mean. Creates never overwrite an existing file. Lint **errors** after apply stop the rest of the batch.
 
 ## AI: Enhance Note
 
