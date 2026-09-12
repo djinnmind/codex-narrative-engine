@@ -4,7 +4,13 @@ You built the campaign in Obsidian. Codex compiles it.
 
 An [Obsidian](https://obsidian.md) plugin for TTRPG vaults: it indexes your notes, lints dead links and contradictions, then runs **recipes** that plan which files to change. You see the diffs before anything is written.
 
-**75-second demo** (Session 5 → advance plots): https://youtu.be/YORChVk6fSY
+**1:25 demo** (Session 5 → advance plots): https://youtu.be/YOrChVk6fSY
+
+![Narrative Warnings listing dead links](docs/images/warnings.png)
+
+![Recipe plan: four plot files checked](docs/images/plan.png)
+
+![Recipe review: file list and unified diff](docs/images/diff.png)
 
 ## Quick Start
 
